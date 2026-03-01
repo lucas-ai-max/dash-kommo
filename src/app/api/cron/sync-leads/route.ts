@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
         const key = `${lead.pipeline_id}_${lead.responsible_user_id || 0}`;
         if (!snapshotMap.has(key)) {
           snapshotMap.set(key, {
-            pipeline_id: lead.pipeline_id,
+            pipeline_id: lead.pipeline_id || 0,
             pipeline_name: lead.pipeline_name || "",
             responsible_user_id: lead.responsible_user_id || 0,
             responsible_user_name: lead.responsible_user_name || "Sem vendedor",
