@@ -1,6 +1,7 @@
 "use client";
 
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface KPICardProps {
   label: string;
@@ -10,7 +11,42 @@ interface KPICardProps {
   change?: number;
   changeLabel?: string;
   loading?: boolean;
+  icon?: ReactNode;
+  color?: "blue" | "green" | "purple" | "orange" | "cyan" | "red";
 }
+
+const COLOR_MAP = {
+  blue: {
+    border: "border-l-blue-500",
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+  },
+  green: {
+    border: "border-l-green-500",
+    bg: "bg-green-500/10",
+    text: "text-green-400",
+  },
+  purple: {
+    border: "border-l-purple-500",
+    bg: "bg-purple-500/10",
+    text: "text-purple-400",
+  },
+  orange: {
+    border: "border-l-orange-500",
+    bg: "bg-orange-500/10",
+    text: "text-orange-400",
+  },
+  cyan: {
+    border: "border-l-cyan-500",
+    bg: "bg-cyan-500/10",
+    text: "text-cyan-400",
+  },
+  red: {
+    border: "border-l-red-500",
+    bg: "bg-red-500/10",
+    text: "text-red-400",
+  },
+};
 
 export default function KPICard({
   label,
@@ -20,10 +56,14 @@ export default function KPICard({
   change,
   changeLabel,
   loading,
+  icon,
+  color,
 }: KPICardProps) {
+  const c = color ? COLOR_MAP[color] : null;
+
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 animate-pulse">
+      <div className={`rounded-xl border border-gray-800 bg-gray-900 p-5 animate-pulse ${c ? `border-l-4 ${c.border}` : ""}`}>
         <div className="h-4 w-24 rounded bg-gray-800 mb-3" />
         <div className="h-8 w-32 rounded bg-gray-800" />
       </div>
@@ -31,8 +71,18 @@ export default function KPICard({
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 transition-colors hover:border-gray-700">
-      <p className="text-sm font-medium text-gray-400">{label}</p>
+    <div
+      className={`rounded-xl border border-gray-800 bg-gray-900 p-5 transition-all hover:border-gray-700 hover:shadow-lg ${c ? `border-l-4 ${c.border}` : ""
+        }`}
+    >
+      <div className="flex items-start justify-between">
+        <p className="text-sm font-medium text-gray-400">{label}</p>
+        {icon && c && (
+          <div className={`rounded-lg p-2 ${c.bg}`}>
+            <div className={c.text}>{icon}</div>
+          </div>
+        )}
+      </div>
       <div className="mt-2 flex items-baseline gap-1">
         {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
         <span className="text-2xl font-bold text-white">
@@ -50,13 +100,12 @@ export default function KPICard({
             <Minus className="h-3.5 w-3.5 text-gray-500" />
           )}
           <span
-            className={`text-xs font-medium ${
-              change > 0
+            className={`text-xs font-medium ${change > 0
                 ? "text-green-500"
                 : change < 0
                   ? "text-red-500"
                   : "text-gray-500"
-            }`}
+              }`}
           >
             {change > 0 ? "+" : ""}
             {change.toFixed(1)}%

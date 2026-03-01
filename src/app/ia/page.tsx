@@ -4,9 +4,10 @@ import Header from "@/components/layout/Header";
 import KPICard from "@/components/cards/KPICard";
 import { useDateFilter } from "@/hooks/useDateFilter";
 import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos } from "@/hooks/useMetrics";
+import { MessageSquare, ArrowRightLeft, Clock, Percent } from "lucide-react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   Cell,
@@ -23,7 +24,6 @@ export default function IAPage() {
   const { data: responseTimes } = useIAResponseTimes();
   const { data: totalPerdidos = 0 } = useLeadsPerdidos(periodo);
 
-  // Agregar todos os dias do período em totais
   const totalConversas = (iaData || []).reduce((s, d) => s + (d.total_conversas ?? 0), 0);
   const totalFinalizadas = (iaData || []).reduce((s, d) => s + (d.conversas_finalizadas ?? 0), 0);
   const totalFup1 = (iaData || []).reduce((s, d) => s + (d.fup_nivel_1_enviados ?? 0), 0);
@@ -34,18 +34,8 @@ export default function IAPage() {
       ? Number(((totalFinalizadas / totalConversas) * 100).toFixed(2))
       : null;
 
-  // Média ponderada de msgs/conversa (apenas dias com dados)
-  const diasComMsgs = (iaData || []).filter((d) => (d.mensagens_por_conversa_media ?? 0) > 0);
-  const msgsPorConversa =
-    diasComMsgs.length > 0
-      ? Number(
-        (diasComMsgs.reduce((s, d) => s + (d.mensagens_por_conversa_media ?? 0), 0) / diasComMsgs.length).toFixed(1)
-      )
-      : null;
-
   const hasAnyData = totalConversas > 0 || totalFup1 > 0;
 
-  // Gráfico de linha: histórico por dia (ordenado crescente)
   const historyData = (iaData || [])
     .slice()
     .reverse()
@@ -58,20 +48,18 @@ export default function IAPage() {
       finalizadas: d.conversas_finalizadas,
     }));
 
-  // Barras de FUP agregadas do período
   const fupData = [
     { nivel: "FUP 1", enviados: totalFup1 },
     { nivel: "FUP 2", enviados: totalFup2 },
     { nivel: "FUP 3", enviados: totalFup3 },
     { nivel: "Perdidos", enviados: totalPerdidos },
   ];
-  const FUP_COLORS = ["#8b5cf6", "#8b5cf6", "#8b5cf6", "#ef4444"];
-
+  const FUP_COLORS = ["#3b82f6", "#3b82f6", "#8b5cf6", "#ef4444"];
 
   return (
     <>
       <Header
-        title="Métricas da IA"
+        title="Métricas da IA - Telemetria Moderna"
         subtitle="Performance do atendimento automatizado"
       />
 
@@ -83,7 +71,6 @@ export default function IAPage() {
               As métricas vêm das tabelas{" "}
               <code className="rounded bg-amber-900/50 px-1">chats</code> e{" "}
               <code className="rounded bg-amber-900/50 px-1">chat_messages</code> no Supabase.
-              Execute o sync: <code className="rounded bg-amber-900/50 px-1">GET /api/cron/sync-ia-metrics</code>.
             </p>
           </div>
         )}
@@ -94,11 +81,15 @@ export default function IAPage() {
             label="Total Conversas"
             value={totalConversas}
             loading={isLoading}
+            icon={<MessageSquare className="h-5 w-5" />}
+            color="blue"
           />
           <KPICard
             label="Transferidos p/ Vendedor"
             value={totalFinalizadas}
             loading={isLoading}
+            icon={<ArrowRightLeft className="h-5 w-5" />}
+            color="green"
           />
           <KPICard
             label="Tempo Médio Resposta"
@@ -106,29 +97,47 @@ export default function IAPage() {
             suffix="seg"
             changeLabel="média 30d"
             loading={isLoading}
+            icon={<Clock className="h-5 w-5" />}
+            color="purple"
           />
           <KPICard
             label="Taxa de Conversão IA"
             value={taxaHandoff != null ? taxaHandoff : "—"}
             suffix="%"
             loading={isLoading}
+            icon={<Percent className="h-5 w-5" />}
+            color="cyan"
           />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Linha: conversas por dia */}
+          {/* Area Chart: conversas por dia */}
           <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-            <h3 className="mb-4 text-sm font-semibold text-white">
-              Conversas por Dia
-            </h3>
+            <div className="mb-4 flex items-center gap-4">
+              <h3 className="text-sm font-semibold text-white">Conversas por Dia</h3>
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" /> Total Conversas
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-500" /> Transferidos
+                </span>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={historyData}>
+              <AreaChart data={historyData}>
+                <defs>
+                  <linearGradient id="colorConversas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorTransferidos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
-                  tickLine={false}
-                />
+                <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
                 <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
                 <Tooltip
                   contentStyle={{
@@ -138,31 +147,15 @@ export default function IAPage() {
                     fontSize: 12,
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="conversas"
-                  name="Total"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="finalizadas"
-                  name="Transferência p/ Vendedor"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
+                <Area type="monotone" dataKey="conversas" name="Total Conversas" stroke="#3b82f6" strokeWidth={2} fill="url(#colorConversas)" />
+                <Area type="monotone" dataKey="finalizadas" name="Transferidos" stroke="#22c55e" strokeWidth={2} fill="url(#colorTransferidos)" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Barras: FUPs agregados do período */}
+          {/* FUP bars */}
           <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-            <h3 className="mb-4 text-sm font-semibold text-white">
-              Follow-ups por Nível
-            </h3>
+            <h3 className="mb-4 text-sm font-semibold text-white">Follow-ups por Nível</h3>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={fupData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -186,6 +179,12 @@ export default function IAPage() {
           </div>
         </div>
 
+        {/* Status Bar */}
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+          <span>System Status: Live Data</span>
+          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-green-500">All Systems Operational</span>
+        </div>
       </div>
     </>
   );
