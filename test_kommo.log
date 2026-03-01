@@ -1,0 +1,9 @@
+﻿[OK ] filter[pipeline_id]=9968344 -> Leads: 5
+[OK ] filter[pipeline_id][]=9968344 -> Leads: 5
+[OK ] filter[pipeline_id][0]=9968344 -> Leads: 5
+[OK ] filter[statuses][0][pipeline_id]=9968344 -> Leads: 5
+[OK ] filter[statuses][pipeline_id]=9968344 -> Leads: 5
+[OK ] filter[statuses][pipeline_id][]=9968344 -> Leads: 5
+[OK ] filter[pipelines][0][id]=9968344 -> Leads: 5
+[204] filter[pipeline_id][0][pipeline_id]=9968344
+[OK ] filter[statuses][0][pipeline_id][]=9968344 -> Leads: 5

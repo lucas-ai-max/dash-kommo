@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-leads",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/calculate-metrics",
+      "schedule": "5,35 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-ia-metrics",
+      "schedule": "10,40 * * * *"
+    }
+  ]
+}
