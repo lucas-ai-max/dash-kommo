@@ -191,7 +191,7 @@ export default function VendedoresPage() {
             return (
               <div
                 key={v.responsible_user_id}
-                className={`relative rounded-xl p-4 flex items-center justify-between overflow-hidden`}
+                className={`relative rounded-xl p-4 flex items-center overflow-hidden`}
                 style={{
                   backgroundColor: CARD_BG,
                   boxShadow: `inset 0 0 30px ${s.innerGlow}, 0 0 15px ${s.glow}`,
@@ -199,29 +199,29 @@ export default function VendedoresPage() {
                 }}
               >
                 {/* Left: trophy + avatar + name */}
-                <div className="flex items-center gap-6 z-10">
+                <div className="flex items-center gap-6 z-10 flex-1 min-w-0">
                   <Trophy className={`h-6 w-6 ml-2 shrink-0 ${s.trophy}`} />
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
                     {/* Avatar with initials */}
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 ${s.avatarRing}`}
+                      className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 ${s.avatarRing}`}
                       style={{ backgroundColor: AVATAR_COLORS[i] }}
                     >
                       {getInitials(v.responsible_user_name || "?")}
                     </div>
-                    <span className="text-lg font-bold text-white">
+                    <span className="text-lg font-bold text-white truncate">
                       {v.responsible_user_name}
                     </span>
                   </div>
                 </div>
 
                 {/* Middle: Vendas + Conversão */}
-                <div className="flex items-center gap-16 z-10">
-                  <div className="text-center">
+                <div className="flex items-center gap-8 z-10 mr-8 shrink-0">
+                  <div className="text-center w-20">
                     <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Vendas</p>
                     <p className="text-xl font-bold text-green-500">{v.leads_won}</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center w-24">
                     <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Conversão</p>
                     <p className="text-xl font-bold text-green-500">
                       {v.taxa_conversao != null ? `${v.taxa_conversao}%` : "—"}
@@ -230,9 +230,9 @@ export default function VendedoresPage() {
                 </div>
 
                 {/* Right: medal with rank number */}
-                <div className="pr-4 z-10 flex items-center justify-center w-16 h-16 relative">
+                <div className="pr-4 z-10 flex items-center justify-center w-16 h-16 relative shrink-0">
                   <Trophy className={`h-12 w-12 ${s.medal}`} />
-                  <span className="absolute text-lg font-bold text-white">{s.rank}</span>
+                  <span className="absolute text-lg font-bold text-white mb-2">{s.rank}</span>
                 </div>
 
                 {/* Gradient overlay */}
