@@ -189,7 +189,7 @@ export default function CanaisPage() {
                       </Pie>
                       <Tooltip
                         contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
-                        formatter={(v: number, name: string) => [`${v} leads`, name]}
+                        formatter={(v: any, name: any) => [`${v} leads`, name]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
