@@ -1,200 +1,289 @@
 "use client";
 
 import Header from "@/components/layout/Header";
-import FunnelChart from "@/components/charts/FunnelChart";
 import { useFunilData } from "@/hooks/useMetrics";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 
 const PIPELINES = [
   { id: 9968344, name: "Vendedores" },
   { id: 13215396, name: "Teste Implantação" },
 ];
 
-function StageBadge({ name }: { name: string }) {
-  const upper = name.toUpperCase();
-  if (upper.includes("GANHO") || upper.includes("GANHA")) {
-    return <span className="rounded px-2 py-0.5 text-[10px] font-bold bg-green-500/20 text-green-400 uppercase">Ganho</span>;
-  }
-  if (upper.includes("PERDIDO") || upper.includes("PERDIDA")) {
-    return <span className="rounded px-2 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 uppercase">Perdido</span>;
-  }
-  if (upper.includes("REAQUECER")) {
-    return <span className="rounded px-2 py-0.5 text-[10px] font-bold bg-yellow-500/20 text-yellow-400">★</span>;
-  }
-  return <span className="rounded px-2 py-0.5 text-[10px] font-bold bg-blue-500/20 text-blue-400 uppercase">Status</span>;
+// Funnel layers: width and clip-path narrowing toward bottom
+const LAYER_STYLES = [
+  { width: "96%", clip: "polygon(0% 0%, 100% 0%, 96% 100%, 4% 100%)" },
+  { width: "88%", clip: "polygon(0% 0%, 100% 0%, 95% 100%, 5% 100%)" },
+  { width: "80%", clip: "polygon(0% 0%, 100% 0%, 94% 100%, 6% 100%)" },
+  { width: "72%", clip: "polygon(0% 0%, 100% 0%, 93% 100%, 7% 100%)" },
+  { width: "64%", clip: "polygon(0% 0%, 100% 0%, 92% 100%, 8% 100%)" },
+  { width: "56%", clip: "polygon(0% 0%, 100% 0%, 91% 100%, 9% 100%)" },
+  { width: "48%", clip: "polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%)" },
+];
+
+// Upward sparkline SVG
+function SparkUp({ color }: { color: string }) {
+  return (
+    <svg className="w-8 h-4" fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 12">
+      <path d="M1 11L5 9L9 10L15 3L19 5L23 1" />
+    </svg>
+  );
+}
+function SparkDown({ color }: { color: string }) {
+  return (
+    <svg className="w-8 h-4" fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 12">
+      <path d="M1 2L6 4L12 3L18 10L23 11" />
+    </svg>
+  );
+}
+
+function stageColor(name: string) {
+  const u = (name || "").toUpperCase();
+  if (u.includes("GANHO") || u.includes("GANHA")) return "emerald";
+  if (u.includes("PERDIDO") || u.includes("PERDIDA")) return "red";
+  if (u.includes("NEGOCIA")) return "purple";
+  if (u.includes("ACOMPANHA") || u.includes("FOLLOW")) return "orange";
+  if (u.includes("REAQUECER")) return "yellow";
+  return "blue";
 }
 
 export default function FunilPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<number>(PIPELINES[0].id);
   const { data: funil, isLoading } = useFunilData("mes_atual", selectedPipelineId);
 
-  const todayData = funil || [];
-
-  const grouped = new Map<number, typeof todayData>();
-  for (const item of todayData) {
-    if (!grouped.has(item.pipeline_id)) grouped.set(item.pipeline_id, []);
-    grouped.get(item.pipeline_id)!.push(item);
-  }
+  const stages = (funil || []).sort((a, b) => b.leads_atual - a.leads_atual);
+  const maxLeads = stages[0]?.leads_atual || 1;
 
   return (
     <>
       <Header
         title="Funil de Conversão"
-        subtitle="Análise detalhada das etapas do pipeline"
+        subtitle="Análise de pipeline em tempo real"
         showDateFilter={false}
       />
 
-      <div className="space-y-6 p-6">
-        {/* Pipeline Selector */}
-        <div className="flex gap-2">
-          {PIPELINES.map((pipeline) => (
+      <div className="flex-1 overflow-y-auto p-6">
+        {/* Pipeline selector buttons */}
+        <div className="flex gap-3 mb-6">
+          {PIPELINES.map((p) => (
             <button
-              key={pipeline.id}
-              onClick={() => setSelectedPipelineId(pipeline.id)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${selectedPipelineId === pipeline.id
-                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+              key={p.id}
+              onClick={() => setSelectedPipelineId(p.id)}
+              className={`px-5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide transition-all ${selectedPipelineId === p.id
+                ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)] border border-white/10"
+                : "bg-transparent text-gray-400 hover:text-white border border-white/10 hover:border-white/30"
                 }`}
             >
-              {pipeline.name}
+              {p.name}
             </button>
           ))}
         </div>
 
         {isLoading ? (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-64 animate-pulse rounded-xl border border-gray-800 bg-gray-900" />
-            ))}
+          <div className="grid xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-7 h-96 animate-pulse rounded-2xl bg-gray-900" />
+            <div className="xl:col-span-5 h-96 animate-pulse rounded-2xl bg-gray-900" />
           </div>
         ) : (
-          <>
-            {Array.from(grouped.entries()).map(([pipelineId, stages]) => (
-              <div key={pipelineId}>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {/* Funnel with percentage arrows */}
-                  <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <h3 className="mb-4 text-sm font-semibold text-white">Funil de Conversão</h3>
-                    <div className="space-y-0">
-                      {stages.map((stage, idx) => {
-                        const maxLeads = stages[0]?.leads_atual || 1;
-                        const widthPct = Math.max(20, (stage.leads_atual / maxLeads) * 100);
-                        const isGanho = stage.status_name?.toUpperCase().includes("GANHO");
-                        const isPerdido = stage.status_name?.toUpperCase().includes("PERDIDO");
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
 
-                        // Compute pass-through rate
-                        let passRate: number | null = null;
-                        if (idx > 0 && stages[idx - 1].leads_atual > 0) {
-                          passRate = Number(((stage.leads_atual / stages[idx - 1].leads_atual) * 100).toFixed(1));
-                        }
+            {/* ── Left: Visual Funnel ── */}
+            <div
+              className="xl:col-span-7 rounded-2xl p-6 border border-white/5 relative overflow-hidden flex flex-col"
+              style={{ backgroundColor: "rgba(22,24,31,0.8)" }}
+            >
+              {/* Purple ambient glow */}
+              <div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full pointer-events-none"
+                style={{ background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)" }}
+              />
 
-                        return (
-                          <div key={stage.status_id}>
-                            {/* Stage bar */}
-                            <div className="flex items-center gap-3 py-1">
-                              <span className="w-40 text-right text-xs text-gray-400 truncate shrink-0">
-                                {stage.status_name}
-                              </span>
-                              <div
-                                className={`relative rounded-md py-2 px-3 text-center transition-all ${isGanho
-                                    ? "bg-green-600/80"
-                                    : isPerdido
-                                      ? "bg-red-600/80"
-                                      : "bg-gradient-to-r from-purple-700 to-purple-500"
-                                  }`}
-                                style={{
-                                  width: `${widthPct}%`,
-                                  minWidth: 60,
-                                }}
-                              >
-                                <span className="text-xs font-bold text-white">
-                                  {stage.leads_atual.toLocaleString("pt-BR")}
-                                </span>
-                              </div>
-                              {/* Pass rate arrow */}
-                              {passRate !== null && (
-                                <div className={`flex items-center gap-0.5 text-xs shrink-0 ${passRate > 50 ? "text-green-400" : passRate > 10 ? "text-yellow-400" : "text-red-400"
-                                  }`}>
-                                  <ChevronDown className="h-3 w-3" />
-                                  {passRate}%
-                                  {passRate > 100 && " ↑"}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Details table with badges */}
-                  <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-800">
-                      <h3 className="text-sm font-semibold text-white">Detalhes por Etapa</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-gray-800 text-xs font-medium text-gray-500 uppercase">
-                            <th className="px-5 py-3">Etapa</th>
-                            <th className="px-5 py-3 text-right">Leads</th>
-                            <th className="px-5 py-3 text-right">Taxa Passagem</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stages.map((stage) => {
-                            const isGanho = stage.status_name?.toUpperCase().includes("GANHO");
-                            const isPerdido = stage.status_name?.toUpperCase().includes("PERDIDO");
-                            const isQuente = stage.status_name?.toUpperCase().includes("QUENTE");
-                            return (
-                              <tr
-                                key={stage.status_id}
-                                className={`border-b border-gray-800/50 transition-colors ${isQuente
-                                    ? "bg-purple-900/10"
-                                    : isGanho
-                                      ? "bg-green-900/10"
-                                      : isPerdido
-                                        ? "bg-red-900/10"
-                                        : "hover:bg-gray-800/30"
-                                  }`}
-                              >
-                                <td className="px-5 py-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-white">
-                                      {stage.status_name}
-                                    </span>
-                                    <StageBadge name={stage.status_name || ""} />
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3 text-right">
-                                  <span className={`text-sm font-bold ${isGanho ? "text-green-400" : isPerdido ? "text-red-400" : "text-blue-400"
-                                    }`}>
-                                    {stage.leads_atual.toLocaleString("pt-BR")}
-                                  </span>
-                                </td>
-                                <td className="px-5 py-3 text-right text-sm text-gray-400">
-                                  {stage.taxa_passagem != null ? `${stage.taxa_passagem}%` : "—"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+              <div className="flex justify-between items-start mb-6 relative z-10">
+                <div>
+                  <h2 className="text-base font-bold text-white tracking-tight">Visualização de Etapas</h2>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-widest mt-0.5">Fluxo & Retenção</p>
                 </div>
               </div>
-            ))}
 
-            {grouped.size === 0 && (
-              <div className="rounded-xl border border-gray-800 bg-gray-900 p-12 text-center">
-                <p className="text-gray-500">
-                  Sem dados de funil disponíveis. Execute a sincronização primeiro.
-                </p>
+              {/* Funnel layers */}
+              <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-4 space-y-1">
+                {stages.map((stage, idx) => {
+                  const layerIdx = Math.min(idx, LAYER_STYLES.length - 1);
+                  const layer = LAYER_STYLES[layerIdx];
+                  const color = stageColor(stage.status_name || "");
+                  const isGanho = color === "emerald";
+                  const isPerdido = color === "red";
+                  const isNeg = color === "purple";
+
+                  // Pass-through rate
+                  let passRate: string | null = null;
+                  if (idx > 0 && stages[idx - 1].leads_atual > 0) {
+                    passRate = ((stage.leads_atual / stages[idx - 1].leads_atual) * 100).toFixed(1);
+                  }
+
+                  const funnelBg = isGanho
+                    ? "linear-gradient(90deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.5) 50%, rgba(16,185,129,0.2) 100%)"
+                    : isPerdido
+                      ? "linear-gradient(90deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.5) 50%, rgba(239,68,68,0.2) 100%)"
+                      : isNeg
+                        ? "linear-gradient(90deg, rgba(139,92,246,0.35) 0%, rgba(139,92,246,0.65) 50%, rgba(139,92,246,0.35) 100%)"
+                        : "linear-gradient(90deg, rgba(139,92,246,0.15) 0%, rgba(139,92,246,0.4) 50%, rgba(139,92,246,0.15) 100%)";
+
+                  const funnelBorder = isGanho
+                    ? "1px solid rgba(16,185,129,0.3)"
+                    : isPerdido
+                      ? "1px solid rgba(239,68,68,0.3)"
+                      : isNeg
+                        ? "1px solid rgba(167,139,250,0.5)"
+                        : "1px solid rgba(139,92,246,0.2)";
+
+                  const passColor =
+                    passRate === null ? "" :
+                      Number(passRate) > 50 ? "#00FF87" :
+                        Number(passRate) > 10 ? "#FFC107" : "#FF2200";
+
+                  return (
+                    <div key={stage.status_id} className="flex items-center w-full group" style={{ height: isNeg ? 52 : 40 }}>
+                      {/* Label */}
+                      <div className="text-right pr-3 shrink-0" style={{ width: "20%" }}>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isNeg ? "text-purple-400" : "text-gray-500 group-hover:text-white"
+                            }`}
+                        >
+                          {stage.status_name}
+                        </span>
+                      </div>
+
+                      {/* Funnel shape */}
+                      <div className="flex justify-center" style={{ width: "60%" }}>
+                        <div style={{ width: layer.width, position: "relative", height: isNeg ? 52 : 40 }}>
+                          <div
+                            className="absolute inset-0 flex items-center justify-center font-bold text-white text-sm"
+                            style={{
+                              clipPath: layer.clip,
+                              background: funnelBg,
+                              border: funnelBorder,
+                              boxShadow: isNeg ? "0 0 20px rgba(139,92,246,0.3)" : undefined,
+                            }}
+                          >
+                            {stage.leads_atual.toLocaleString("pt-BR")}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pass rate */}
+                      <div className="pl-3 flex items-center" style={{ width: "20%" }}>
+                        {passRate !== null && (
+                          <span className="font-mono font-bold text-xs flex items-center gap-1" style={{ color: passColor }}>
+                            {passRate}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {stages.length === 0 && (
+                  <p className="text-gray-500 text-sm">Sem dados para este pipeline.</p>
+                )}
               </div>
-            )}
-          </>
+            </div>
+
+            {/* ── Right: Detail table ── */}
+            <div
+              className="xl:col-span-5 rounded-2xl border border-white/5 flex flex-col overflow-hidden"
+              style={{ backgroundColor: "rgba(22,24,31,0.8)" }}
+            >
+              <div className="px-5 py-4 border-b border-white/5 flex justify-between items-center" style={{ backgroundColor: "rgba(255,255,255,0.01)" }}>
+                <h2 className="text-xs font-bold text-white uppercase tracking-wide">Detalhes por Etapa</h2>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-[10px] border-b border-white/5 uppercase tracking-widest" style={{ backgroundColor: "rgba(255,255,255,0.01)", color: "#666" }}>
+                      <th className="px-5 py-3 font-medium">Etapa</th>
+                      <th className="px-5 py-3 font-medium text-right">Leads</th>
+                      <th className="px-5 py-3 font-medium text-right w-28">Conv.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stages.map((stage, idx) => {
+                      const color = stageColor(stage.status_name || "");
+                      const isGanho = color === "emerald";
+                      const isPerdido = color === "red";
+                      const isNeg = color === "purple";
+
+                      let passRate: string | null = null;
+                      if (idx > 0 && stages[idx - 1].leads_atual > 0) {
+                        passRate = ((stage.leads_atual / stages[idx - 1].leads_atual) * 100).toFixed(1);
+                      }
+
+                      const dotColor = isGanho ? "#10b981" : isPerdido ? "#ef4444" : isNeg ? "#8b5cf6" : "#3b82f6";
+                      const passColor = passRate == null ? "#666" : Number(passRate) > 50 ? "#00FF87" : Number(passRate) > 10 ? "#FFC107" : "#FF2200";
+
+                      return (
+                        <tr
+                          key={stage.status_id}
+                          className="transition-all duration-200 border-none"
+                          style={{
+                            backgroundColor: isNeg
+                              ? "rgba(139,92,246,0.12)"
+                              : isGanho
+                                ? "rgba(16,185,129,0.03)"
+                                : isPerdido
+                                  ? "rgba(239,68,68,0.03)"
+                                  : undefined,
+                            borderLeft: isNeg ? "3px solid #8b5cf6" : "3px solid transparent",
+                          }}
+                        >
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              {isNeg ? (
+                                <div className="relative w-2 h-2">
+                                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#8b5cf6", boxShadow: "0 0 10px #8b5cf6" }} />
+                                </div>
+                              ) : (
+                                <div className="w-1.5 h-7 rounded-full" style={{ backgroundColor: dotColor + "66", boxShadow: `0 0 8px ${dotColor}66` }} />
+                              )}
+                              <div className="flex flex-col">
+                                <span className={`text-xs font-semibold ${isNeg ? "text-white" : "text-gray-300"}`}>
+                                  {stage.status_name}
+                                </span>
+                                <span className="text-[9px] uppercase tracking-wider" style={{ color: "#555" }}>
+                                  {isNeg ? "Etapa Ativa" : isGanho ? "Ganho" : isPerdido ? "Perdido" : "Aberto"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <span
+                              className="font-mono text-xs font-bold"
+                              style={{ color: isGanho ? "#10b981" : isPerdido ? "#ef4444" : "#e5e7eb" }}
+                            >
+                              {stage.leads_atual.toLocaleString("pt-BR")}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            {passRate !== null ? (
+                              <div className="flex items-center justify-end gap-2">
+                                {Number(passRate) < 30 ? <SparkDown color={passColor} /> : <SparkUp color={passColor} />}
+                                <span className="font-mono font-bold text-[10px]" style={{ color: passColor }}>
+                                  {passRate}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span style={{ color: "#555", fontSize: 10 }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
         )}
       </div>
     </>

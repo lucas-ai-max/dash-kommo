@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Motacor Dashboard - Diagnóstico de Perdas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Font Awesome for Icons (Placeholder for missing specific icons) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'dashboard-bg': '#0b0d17',
+                        'card-bg': '#14161f',
+                        'sidebar-bg': '#0b0d17',
+                        'accent-red': '#ff5252',
+                        'accent-red-dim': 'rgba(255, 82, 82, 0.1)',
+                        'text-muted': '#6b7280',
+                        'text-light': '#e5e7eb',
+                        'border-dark': '#2d3748',
+                    },
+                    backgroundImage: {
+                        'active-gradient': 'linear-gradient(90deg, rgba(255,82,82,0.15) 0%, rgba(255,82,82,0.0) 100%)',
+                        'empty-state-gradient': 'linear-gradient(180deg, rgba(40,10,10,1) 0%, #14161f 100%)',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom CSS for specific charts and scrollbars -->
+    <style data-purpose="custom-utilities">
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* Chart Bar Simulation */
+        .bar-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            font-size: 0.75rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .bar-label {
+            width: 50%;
+            /* Increased width for labels */
+            text-align: right;
+            padding-right: 1rem;
+            color: #9ca3af;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bar-wrapper {
+            flex-grow: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+            /* Fully rounded */
+            overflow: visible;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background-color: #ff5252;
+            border-radius: 999px;
+            /* Fully rounded */
+        }
+
+        .bar-value {
+            margin-left: 0.5rem;
+            color: #e5e7eb;
+            font-size: 0.75rem;
+            min-width: 25px;
+            font-weight: 500;
+        }
+
+        /* Active Nav Item Indicator */
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(220, 38, 38, 0.2) 0%, transparent 100%);
+            color: white;
+            border-left: 3px solid #ef4444;
+            /* Standard Tailwind red-500 */
+        }
+
+        .nav-item:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        /* Grid Lines for Chart */
+        .chart-grid-line {
+            position: absolute;
+            left: 50%;
+            right: 0;
+            height: 1px;
+            background-color: #2d3748;
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+
+<body class="bg-dashboard-bg text-gray-300 font-sans antialiased h-screen overflow-hidden flex">
+    <!-- BEGIN: Sidebar -->
+    <aside class="w-64 flex-shrink-0 flex flex-col border-r border-gray-800 bg-sidebar-bg h-full">
+        <!-- Logo Area -->
+        <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center mr-3 text-white font-bold text-xs">
+                M</div>
+            <span class="text-white font-semibold text-lg">Motacor</span>
+        </div>
+        <!-- Main Navigation -->
+        <nav class="flex-1 overflow-y-auto py-6 space-y-1">
+            <a class="nav-item flex items-center px-6 py-3 text-sm font-medium text-gray-400 border-l-4 border-transparent"
+                href="#">
+                <i class="fa-solid fa-layer-group w-6"></i>
+                Overview
+            </a>
+            <a class="nav-item flex items-center px-6 py-3 text-sm font-medium text-gray-400 border-l-4 border-transparent"
+                href="#">
+                <i class="fa-solid fa-filter w-6"></i>
+                Funil
+            </a>
+            <a class="nav-item flex items-center px-6 py-3 text-sm font-medium text-gray-400 border-l-4 border-transparent"
+                href="#">
+                <i class="fa-solid fa-chart-bar w-6"></i>
+                Canais
+            </a>
+            <a class="nav-item flex items-center px-6 py-3 text-sm font-medium text-gray-400 border-l-4 border-transparent"
+                href="#">
+                <i class="fa-solid fa-users w-6"></i>
+                Vendedores
+            </a>
+            <a class="nav-item flex items-center px-6 py-3 text-sm font-medium text-gray-400 border-l-4 border-transparent"
+                href="#">
+                <i class="fa-solid fa-robot w-6"></i>
+                IA
+            </a>
+            <!-- Active Item -->
+            <a class="nav-item active flex items-center px-6 py-3 text-sm font-medium text-accent-red" href="#">
+                <i class="fa-solid fa-ban w-6"></i>
+                Perdas
+            </a>
+        </nav>
+        <!-- Footer Profile -->
+        <div class="border-t border-gray-800 p-4">
+            <div class="flex items-center">
+                <div
+                    class="w-8 h-8 rounded bg-red-500 flex items-center justify-center text-white text-xs font-bold mr-3">
+                    M</div>
+                <div>
+                    <p class="text-sm font-medium text-white">Motacor</p>
+                    <p class="text-xs text-gray-500">Dashboard v0.1</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+    <!-- END: Sidebar -->
+    <!-- BEGIN: Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-dashboard-bg relative">
+        <!-- Header Section -->
+        <header class="h-20 px-8 flex flex-col justify-center border-b border-gray-800/50">
+            <h1 class="text-xl text-gray-100 font-semibold">Diagnóstico de Perdas Moderno</h1>
+            <p class="text-sm text-gray-500 mt-1">Análise detalhada das etapas do pipeline e motivos de perdas.</p>
+        </header>
+        <!-- Scrollable Grid Content -->
+        <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full min-h-[800px]">
+                <!-- BEGIN: Column 1 - SDR -->
+                <section class="flex flex-col gap-4">
+                    <h2 class="text-lg font-semibold text-white mb-2">Perdas — SDR</h2>
+                    <!-- KPI Row -->
+                    <div class="grid grid-cols-4 gap-2">
+                        <!-- KPI 1 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Total de Perdas</span>
+                            <span class="text-2xl font-bold text-accent-red">251</span>
+                        </div>
+                        <!-- KPI 2 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Motivos Distintos</span>
+                            <span class="text-2xl font-bold text-accent-red">10</span>
+                        </div>
+                        <!-- KPI 3 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Principal Motivo</span>
+                            <span class="text-sm font-bold text-accent-red leading-tight mt-1">Sem motivo</span>
+                        </div>
+                        <!-- KPI 4 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">% do Principal</span>
+                            <span class="text-xl font-bold text-accent-red">61.8%</span>
+                        </div>
+                    </div>
+                    <!-- Chart Card -->
+                    <article class="bg-card-bg border border-gray-800 rounded-lg flex-1 min-h-[300px] p-5">
+                        <h3 class="text-sm font-medium text-gray-200 mb-4">Ranking de Motivos de Perda</h3>
+                        <div class="flex flex-col h-full space-y-2">
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Sem motivo</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 100%;"></div>
+                                </div>
+                                <span class="bar-value">155</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Não está em momento de compra</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 40%;"></div>
+                                </div>
+                                <span class="bar-value">40</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Modelo desejado Indisponível</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 15%;"></div>
+                                </div>
+                                <span class="bar-value">10</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Orçamento insuficiente</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 18%;"></div>
+                                </div>
+                                <span class="bar-value">14</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Troca não aceita</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 8%;"></div>
+                                </div>
+                                <span class="bar-value">5</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Localização de concessionária</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 5%;"></div>
+                                </div>
+                                <span class="bar-value">3</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Negativado</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 2%;"></div>
+                                </div>
+                                <span class="bar-value">1</span>
+                            </div>
+                            <!-- Line overlay simulation -->
+                            <div
+                                class="relative h-4 mt-4 border-t border-gray-700 w-full flex justify-between text-[10px] text-gray-500 pl-[45%]">
+                                <span>0</span><span>40</span><span>80</span><span>120</span><span>160</span>
+                            </div>
+                        </div>
+                    </article>
+                    <!-- Table Card -->
+                    <article
+                        class="bg-card-bg border border-gray-800 rounded-lg p-0 flex-1 flex flex-col h-64 overflow-hidden p-5">
+                        <div class="p-4 pb-2 border-b border-gray-800">
+                            <h3 class="text-sm font-medium text-gray-200">Detalhamento de Perdas</h3>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar p-2">
+                            <table class="w-full text-xs text-left">
+                                <thead class="uppercase text-gray-500 font-semibold bg-card-bg sticky top-0 text-xs">
+                                    <tr>
+                                        <th class="pb-2 pl-2">Motivo</th>
+                                        <th class="pb-2">Canal</th>
+                                        <th class="pb-2">Responsável</th>
+                                        <th class="pb-2 text-right">QTD</th>
+                                        <th class="pb-2 text-right pr-2">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-gray-300 divide-y divide-gray-800/50">
+                                    <tr>
+                                        <td class="py-3 pl-2">Sem motivo</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Eryck Henrique Matos</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">96</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">38.25%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Sem motivo</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Eryck Henrique Matos</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">14</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">5.56%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Modelo desejado indisponível</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Eryck Henrique Matos</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">14</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">1.55%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Troca não aceita</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Eryck Henrique Matos</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">4</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">1.59%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <!-- END: Column 1 -->
+                <!-- BEGIN: Column 2 - Vendedores -->
+                <section class="flex flex-col gap-4">
+                    <h2 class="text-lg font-semibold text-white mb-2">Perdas — Vendedores</h2>
+                    <!-- KPI Row -->
+                    <div class="grid grid-cols-4 gap-2">
+                        <!-- KPI 1 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Total de Perdas</span>
+                            <span class="text-2xl font-bold text-accent-red">833</span>
+                        </div>
+                        <!-- KPI 2 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Motivos Distintos</span>
+                            <span class="text-2xl font-bold text-accent-red">10</span>
+                        </div>
+                        <!-- KPI 3 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">Principal Motivo</span>
+                            <span class="text-sm font-bold text-accent-red leading-tight mt-1">Sem motivo</span>
+                        </div>
+                        <!-- KPI 4 -->
+                        <div
+                            class="bg-card-bg p-3 rounded-lg border border-gray-800 flex flex-col justify-between h-24">
+                            <span class="text-xs text-gray-400 leading-tight">% do Principal</span>
+                            <span class="text-xl font-bold text-accent-red">29.3%</span>
+                        </div>
+                    </div>
+                    <!-- Chart Card -->
+                    <article class="bg-card-bg border border-gray-800 rounded-lg flex-1 min-h-[300px] p-5">
+                        <h3 class="text-sm font-medium text-gray-200 mb-4">Ranking de Motivos de Perda</h3>
+                        <div class="flex flex-col h-full space-y-2">
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Sem motivo</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 100%;"></div>
+                                </div>
+                                <span class="bar-value">244</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Propostas não aceitas</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 65%;"></div>
+                                </div>
+                                <span class="bar-value">155</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Negativado</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 40%;"></div>
+                                </div>
+                                <span class="bar-value">98</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Orçamento insuficiente</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 25%;"></div>
+                                </div>
+                                <span class="bar-value">62</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Modelo desejado indisponível</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 35%;"></div>
+                                </div>
+                                <span class="bar-value">89</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Histórico de crédito do cliente</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 15%;"></div>
+                                </div>
+                                <span class="bar-value">41</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Comprou em outra loja</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 10%;"></div>
+                                </div>
+                                <span class="bar-value">28</span>
+                            </div>
+                            <!-- Bar Item -->
+                            <div class="bar-container">
+                                <div class="chart-grid-line" style="top: 50%;"></div>
+                                <span class="bar-label">Não está em momento de compra</span>
+                                <div class="bar-wrapper">
+                                    <div class="bar-fill" style="width: 5%;"></div>
+                                </div>
+                                <span class="bar-value">13</span>
+                            </div>
+                        </div>
+                    </article>
+                    <!-- Table Card -->
+                    <article
+                        class="bg-card-bg border border-gray-800 rounded-lg p-0 flex-1 flex flex-col h-64 overflow-hidden p-5">
+                        <div class="p-4 pb-2 border-b border-gray-800">
+                            <h3 class="text-sm font-medium text-gray-200">Detalhamento de Perdas</h3>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar p-2">
+                            <table class="w-full text-xs text-left">
+                                <thead class="uppercase text-gray-500 font-semibold bg-card-bg sticky top-0 text-xs">
+                                    <tr>
+                                        <th class="pb-2 pl-2">Motivo</th>
+                                        <th class="pb-2">Canal</th>
+                                        <th class="pb-2">Responsável</th>
+                                        <th class="pb-2 text-right">QTD</th>
+                                        <th class="pb-2 text-right pr-2">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-gray-300 divide-y divide-gray-800/50">
+                                    <tr>
+                                        <td class="py-3 pl-2">Sem motivo</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Felipe Carvalho</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">195</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">22.21%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Propostas não aceitas</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Felipe Carvalho</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">165</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">22.21%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Negativado</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Felipe Carvalho</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">98</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">11.76%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 pl-2">Comprou em outra loja</td>
+                                        <td class="py-3 text-gray-500">Sem canal</td>
+                                        <td class="py-3">Felipe Carvalho</td>
+                                        <td class="py-3 text-right text-accent-red font-bold">28</td>
+                                        <td class="py-3 text-right pr-2 text-accent-red">3.36%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <!-- END: Column 2 -->
+                <!-- BEGIN: Column 3 - Teste Implantação -->
+                <section class="flex flex-col gap-4">
+                    <h2 class="text-lg font-semibold text-white mb-2">Perdas — Teste Implantação</h2>
+                    <!-- Empty State Card -->
+                    <article
+                        class="flex-1 rounded-xl border border-gray-800/50 flex flex-col items-center justify-center text-center p-8 relative overflow-hidden h-full min-h-[600px]"
+                        style="background: linear-gradient(to bottom right, #3a1515, #0b0d17);">
+                        <div class="relative z-10 flex flex-col items-center">
+                            <img alt="Document Icon"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCs7DmkKP0vdL2i3iaryVemujb5f8zADrzzw_LWvXqd7M_RUXBcEvf-m6pxFcgBn5I0L5lF8ckQP5yb-5JoS8TpjeCHay_lTTbxxgknrNUMQXVRcnnQLoc2yELQMG9PP3bt0ZE3GKwmXjbO07GdSm3vy3nK65ZtA65ITWykHST_SJfNqOv_7Gsgrz52thnayrQM1Rfjfk24Dk78bv9RVBiZ8tlaF-GU4IiDYI3MjhnVN_jpo0TXn5qI7rgoJsR39zDH7ar9xJ-BXHM"
+                                style="width: 80px; height: auto; margin-bottom: 1.5rem; opacity: 0.9;" />
+                            <p class="text-[#888888] text-sm font-medium">Sem perdas registradas nesta pipeline.</p>
+                        </div>
+                    </article>
+                </section>
+                <!-- END: Column 3 -->
+            </div>
+        </div>
+    </main>
+    <!-- END: Main Content -->
+</body>
+
+</html>

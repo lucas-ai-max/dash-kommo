@@ -1,0 +1,442 @@
+<!-- BEGIN: HTML Document -->
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Motocor Dashboard Comercial</title>
+    <!-- Load Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Load FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <!-- Tailwind Configuration for Custom Colors and Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dashboard: {
+                            bg: '#0B0E14',         // Very dark background
+                            sidebar: '#10141D',    // Slightly lighter sidebar
+                            card: '#161B26',       // Card background
+                            border: '#2A303C',     // Subtle border
+                            accent: '#22c55e',     // Success Green
+                            gold: '#F59E0B',
+                            silver: '#9CA3AF',
+                            bronze: '#B45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- BEGIN: Custom CSS -->
+    <style data-purpose="glow-effects">
+        /* Custom Glow Effects for KPI Cards */
+        .glow-blue {
+            box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.5);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .glow-purple {
+            box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.5);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+
+        .glow-green {
+            box-shadow: 0 0 25px -5px rgba(34, 197, 94, 0.5);
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        /* Leaderboard Rank Glows */
+        .rank-gold {
+            box-shadow: inset 0 0 30px rgba(245, 158, 11, 0.2), 0 0 15px rgba(245, 158, 11, 0.3);
+            border: 1px solid #F59E0B;
+            background: linear-gradient(to right, rgba(245, 158, 11, 0.1), transparent);
+        }
+
+        .rank-silver {
+            box-shadow: inset 0 0 30px rgba(156, 163, 175, 0.2), 0 0 15px rgba(156, 163, 175, 0.3);
+            border: 1px solid #9CA3AF;
+            background: linear-gradient(to right, rgba(156, 163, 175, 0.1), transparent);
+        }
+
+        .rank-bronze {
+            box-shadow: inset 0 0 30px rgba(180, 83, 9, 0.2), 0 0 15px rgba(180, 83, 9, 0.3);
+            border: 1px solid #B45309;
+            background: linear-gradient(to right, rgba(180, 83, 9, 0.1), transparent);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0B0E14;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2A303C;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+    <!-- END: Custom CSS -->
+</head>
+
+<body class="bg-dashboard-bg text-gray-300 font-sans antialiased h-screen flex overflow-hidden">
+    <!-- BEGIN: Sidebar -->
+    <aside class="w-64 bg-dashboard-sidebar flex flex-col border-r border-dashboard-border flex-shrink-0">
+        <!-- Logo Area -->
+        <div class="p-6 flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-white">
+                <i class="fas fa-car"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-white leading-tight">Motocor</h1>
+                <p class="text-xs text-gray-500">Dashboard Comercial</p>
+            </div>
+        </div>
+        <!-- Navigation -->
+        <nav class="flex-1 px-4 space-y-2 mt-4">
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                href="#">
+                <i class="fas fa-home w-5"></i>
+                Overview
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                href="#">
+                <i class="fas fa-filter w-5"></i>
+                Funil
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                href="#">
+                <i class="fas fa-video w-5"></i>
+                Canais
+            </a>
+            <!-- Active Menu Item -->
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-white bg-white/10 rounded-lg border border-white/5 shadow-sm"
+                href="#">
+                <i class="fas fa-user-friends w-5"></i>
+                Vendedores
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                href="#">
+                <i class="fas fa-brain w-5"></i>
+                IA
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                href="#">
+                <i class="fas fa-chart-line w-5"></i>
+                Perdas
+            </a>
+        </nav>
+        <!-- Sidebar Footer -->
+        <div class="p-6 border-t border-dashboard-border">
+            <p class="text-xs text-gray-600">Motocor Dashboard v0.1</p>
+        </div>
+    </aside>
+    <!-- END: Sidebar -->
+    <!-- BEGIN: Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-8 relative">
+        <!-- Header Section -->
+        <header class="flex justify-between items-start mb-8">
+            <div>
+                <h2 class="text-2xl font-bold text-white">Ranking de Vendedores Moderno</h2>
+                <p class="text-gray-400 mt-1">Métricas individuais e comparativo</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-xs text-gray-500 flex items-center gap-2">
+                    <i class="fas fa-sync-alt"></i> Sync: há cerca de 1 hora
+                </span>
+                <button
+                    class="px-4 py-2 border border-dashboard-border text-sm rounded hover:bg-white/5 transition text-gray-300">
+                    Sincronizar
+                </button>
+            </div>
+        </header>
+        <!-- BEGIN: KPI Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Card 1 -->
+            <div
+                class="bg-dashboard-card p-6 rounded-xl glow-blue flex justify-between items-center relative overflow-hidden group">
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Vendedores Ativos</p>
+                    <h3 class="font-bold text-white text-4xl">3</h3>
+                </div>
+                <div
+                    class="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                    <i class="fas fa-users text-xl"></i>
+                </div>
+                <!-- Decorative bg glow -->
+                <div
+                    class="absolute -bottom-4 -left-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl pointer-events-none">
+                </div>
+            </div>
+            <!-- Card 2 -->
+            <div
+                class="bg-dashboard-card p-6 rounded-xl glow-purple flex justify-between items-center relative overflow-hidden">
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Total Vendas</p>
+                    <h3 class="font-bold text-white text-4xl">199</h3>
+                </div>
+                <div
+                    class="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                </div>
+                <div
+                    class="absolute -bottom-4 -left-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl pointer-events-none">
+                </div>
+            </div>
+            <!-- Card 3 -->
+            <div
+                class="bg-dashboard-card p-6 rounded-xl glow-green flex justify-between items-center relative overflow-hidden">
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Receita Total</p>
+                    <h3 class="font-bold text-white text-4xl">R$ 0</h3>
+                </div>
+                <div
+                    class="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 border border-green-500/20">
+                    <i class="fas fa-money-bill-wave text-xl"></i>
+                </div>
+                <div
+                    class="absolute -bottom-4 -left-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl pointer-events-none">
+                </div>
+            </div>
+            <!-- Card 4 -->
+            <div
+                class="bg-dashboard-card p-6 rounded-xl glow-blue flex justify-between items-center relative overflow-hidden">
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Conversão Média</p>
+                    <h3 class="font-bold text-white text-4xl">20.3%</h3>
+                </div>
+                <div
+                    class="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                    <i class="fas fa-percentage text-xl"></i>
+                </div>
+                <div
+                    class="absolute -bottom-4 -left-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl pointer-events-none">
+                </div>
+            </div>
+        </section>
+        <!-- END: KPI Cards -->
+        <!-- BEGIN: Leaderboard Section -->
+        <section class="space-y-4 mb-8">
+            <!-- Rank 1 (Gold) -->
+            <div
+                class="bg-dashboard-card rounded-xl p-4 flex items-center justify-between rank-gold relative overflow-hidden">
+                <div class="flex items-center gap-6 z-10">
+                    <div class="text-yellow-500 text-2xl pl-2">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <img alt="Felipe" class="w-12 h-12 rounded-full object-cover border-2 border-yellow-500/50"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx10WHmP5yYdxxRaCUH1w3u-FvguL89BH0gGGJQ4KnqMjp8i9iyO1lIe_gfY0EYyhNjiX4fzA3-7biusAi11koz5DV2WTnf1tnwooE37KqPmQs7WA6EaXjkFm4q-gJQj4SxEvF_cKXQv1zduaoNXisX_s67UyVsPd4fXV9DOygItmGnEGHCD1QAGKSbuD9dq76vHpe0cTxtGCLT5yKL249DqOZsK_k3Lk21l-OrNvYmDwXBnHkP8E6A0qYXJC6LWDa7FkPXgmN5rM" />
+                        <span class="text-lg font-bold text-white">Felipe Carvalho</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-16 z-10">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Vendas</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">141</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Conversão</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">5.99%</p>
+                    </div>
+                </div>
+                <div class="pr-4 z-10">
+                    <div class="relative flex items-center justify-center w-16 h-16">
+                        <i class="fas fa-medal text-5xl text-yellow-400"></i>
+                        <span class="absolute text-lg font-bold text-white mt-1">1</span>
+                    </div>
+                </div>
+                <!-- Gradient overlay for glow -->
+                <div
+                    class="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-yellow-500/5 via-transparent to-yellow-500/5 pointer-events-none">
+                </div>
+            </div>
+            <!-- Rank 2 (Silver) -->
+            <div
+                class="bg-dashboard-card rounded-xl p-4 flex items-center justify-between rank-silver relative overflow-hidden">
+                <div class="flex items-center gap-6 z-10">
+                    <div class="text-gray-400 text-2xl pl-2">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <img alt="Mateus" class="w-12 h-12 rounded-full object-cover border-2 border-gray-400/50"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTsUeCCBizG1vdCBA01emjpj22O1Fe7pdVzQbAGDT5F0894DAomYsLgskgMWsC9mgyoD_oLUBnAH3YGI0tbJ5PcJZ7S27zAHgyb4cE0-GD1xeSozqub3ePlS39kseLw0J9e-c3mOuQ13NTHdmhk4M37HUns9Tk-N7jCB0aXkd82tkfP3bsH4lvu7lhvDdwxsm2Fq_8UmQWW5Wlrh3FjNMQehTtL4cQ4vAWXwtmwrpq6N1wvUETaw7z78Yk0wEq11fC6dni8ahkZd8" />
+                        <span class="text-lg font-bold text-white">Mateus</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-16 z-10">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Vendas</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">30</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Conversão</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">7.56%</p>
+                    </div>
+                </div>
+                <div class="pr-4 z-10">
+                    <div class="relative flex items-center justify-center w-16 h-16">
+                        <i class="fas fa-medal text-5xl text-gray-400"></i>
+                        <span class="absolute text-lg font-bold text-white mt-1">2</span>
+                    </div>
+                </div>
+                <div
+                    class="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-gray-400/5 via-transparent to-gray-400/5 pointer-events-none">
+                </div>
+            </div>
+            <!-- Rank 3 (Bronze) -->
+            <div
+                class="bg-dashboard-card rounded-xl p-4 flex items-center justify-between rank-bronze relative overflow-hidden">
+                <div class="flex items-center gap-6 z-10">
+                    <div class="text-orange-700 text-2xl pl-2">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <img alt="Jovanio" class="w-12 h-12 rounded-full object-cover border-2 border-orange-700/50"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsouY-NYKNHfWq5FoBUP2LtvKxAUc1DFfygAMGP1-WqRFjCsmWZW7CzZeLqRXdl_v4mxHK8rSSAlRP6kZj5IBie__6ZvPYSUdLPVXJ-pRa-_66P5uZm4UlPzH2vo2onxmfmW_pQjqiFBm4-1J837hgB4AdiX7OxOI695OJz9LgXub2pp4tT9El1Bzu6jZ0jmQDiOKJh1LPEInidEmHCPlOsuKHcvjBLsGuWM9iGxxaSwdhwv9RZEoUxmbh9_hNbTk5olVSSGNrK6I" />
+                        <span class="text-lg font-bold text-white">Jovanio Neto</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-16 z-10">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Vendas</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">28</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Conversão</p>
+                        <p class="text-xl font-bold text-dashboard-accent text-green-500">47.46%</p>
+                    </div>
+                </div>
+                <div class="pr-4 z-10">
+                    <div class="relative flex items-center justify-center w-16 h-16">
+                        <i class="fas fa-medal text-5xl text-orange-700"></i>
+                        <span class="absolute text-lg font-bold text-white mt-1">3</span>
+                    </div>
+                </div>
+                <div
+                    class="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-orange-700/5 via-transparent to-orange-700/5 pointer-events-none">
+                </div>
+            </div>
+        </section>
+        <!-- END: Leaderboard Section -->
+        <!-- BEGIN: Data Table -->
+        <section class="bg-dashboard-card rounded-xl border border-dashboard-border overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-white/5 uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-4 font-medium" scope="col">#</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Vendedor</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Leads</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Vendas</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Conversão</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Ticket Médio</th>
+                            <th class="px-6 py-4 font-medium" scope="col">Receita</th>
+                            <th class="px-6 py-4 font-medium text-right" scope="col">Meta</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-dashboard-border">
+                        <!-- Row 1 -->
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-6 py-4">1</td>
+                            <td class="px-6 py-4 flex items-center gap-3">
+                                <img alt="Felipe" class="w-8 h-8 rounded-full"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx10WHmP5yYdxxRaCUH1w3u-FvguL89BH0gGGJQ4KnqMjp8i9iyO1lIe_gfY0EYyhNjiX4fzA3-7biusAi11koz5DV2WTnf1tnwooE37KqPmQs7WA6EaXjkFm4q-gJQj4SxEvF_cKXQv1zduaoNXisX_s67UyVsPd4fXV9DOygItmGnEGHCD1QAGKSbuD9dq76vHpe0cTxtGCLT5yKL249DqOZsK_k3Lk21l-OrNvYmDwXBnHkP8E6A0qYXJC6LWDa7FkPXgmN5rM" />
+                                <span class="text-white">Felipe Carvalho</span>
+                            </td>
+                            <td class="px-6 py-4">2213</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">141</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">5.99%</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4 text-right">---</td>
+                        </tr>
+                        <!-- Row 2 -->
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-6 py-4">2</td>
+                            <td class="px-6 py-4 flex items-center gap-3">
+                                <img alt="Mateus" class="w-8 h-8 rounded-full"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTsUeCCBizG1vdCBA01emjpj22O1Fe7pdVzQbAGDT5F0894DAomYsLgskgMWsC9mgyoD_oLUBnAH3YGI0tbJ5PcJZ7S27zAHgyb4cE0-GD1xeSozqub3ePlS39kseLw0J9e-c3mOuQ13NTHdmhk4M37HUns9Tk-N7jCB0aXkd82tkfP3bsH4lvu7lhvDdwxsm2Fq_8UmQWW5Wlrh3FjNMQehTtL4cQ4vAWXwtmwrpq6N1wvUETaw7z78Yk0wEq11fC6dni8ahkZd8" />
+                                <span class="text-white">Mateus</span>
+                            </td>
+                            <td class="px-6 py-4">367</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">30</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">7.56%</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4 text-right">---</td>
+                        </tr>
+                        <!-- Row 3 (Implied from layout) -->
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-6 py-4">3</td>
+                            <td class="px-6 py-4 flex items-center gap-3">
+                                <img alt="Jovanio" class="w-8 h-8 rounded-full"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsouY-NYKNHfWq5FoBUP2LtvKxAUc1DFfygAMGP1-WqRFjCsmWZW7CzZeLqRXdl_v4mxHK8rSSAlRP6kZj5IBie__6ZvPYSUdLPVXJ-pRa-_66P5uZm4UlPzH2vo2onxmfmW_pQjqiFBm4-1J837hgB4AdiX7OxOI695OJz9LgXub2pp4tT9El1Bzu6jZ0jmQDiOKJh1LPEInidEmHCPlOsuKHcvjBLsGuWM9iGxxaSwdhwv9RZEoUxmbh9_hNbTk5olVSSGNrK6I" />
+                                <span class="text-white">Jovanio Neto</span>
+                            </td>
+                            <td class="px-6 py-4">59</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">28</td>
+                            <td class="px-6 py-4 text-dashboard-accent font-medium">47.46%</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4">R$ 0</td>
+                            <td class="px-6 py-4 text-right">---</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <!-- END: Data Table -->
+        <!-- BEGIN: Bottom Funnel Section -->
+        <section
+            class="bg-dashboard-card rounded-t-xl border-t border-x border-dashboard-border p-6 h-48 relative overflow-hidden">
+            <div class="relative z-10 w-full h-full flex flex-col">
+                <div class="px-6 py-4">
+                    <h3 class="text-lg font-bold text-white">Funnel de Vendas (Preview)</h3>
+                </div>
+                <div class="flex-1 flex flex-col justify-end items-center relative">
+                    <!-- Text Content positioned above the curve -->
+                    <div class="mb-8 text-center z-20">
+                        <p class="text-xs text-gray-400 mb-1 tracking-wide">Cumulative View Vendedores</p>
+                        <div class="text-gray-300 text-sm">Contato Inicial: <span
+                                class="text-white font-bold text-lg">2213</span></div>
+                    </div>
+                    <!-- Horizon Effect Container -->
+                    <div
+                        style="height: 100px; width: 100%; position: absolute; bottom: 0; background: radial-gradient(ellipse at center bottom, rgba(59, 130, 246, 0.5) 0%, transparent 70%); pointer-events: none;">
+                    </div>
+                    <!-- Neon Horizon Line -->
+                    <div
+                        class="absolute bottom-0 w-full h-[1px] bg-blue-500 shadow-[0_0_20px_2px_rgba(59,130,246,0.8)]">
+                    </div>
+                    <!-- Curved Line Simulation -->
+                    <div
+                        class="absolute -bottom-10 w-[120%] h-32 border-t-2 border-purple-500 rounded-[100%] blur-[2px] shadow-[0_-5px_20px_rgba(168,85,247,0.6)]">
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: Bottom Funnel Section -->
+    </main>
+    <!-- END: Main Content Area -->
+</body>
+
+</html><!-- MISSING_IMAGES:
+- User avatar for Rank 1 (Felipe Carvalho)
+- User avatar for Rank 2 (Mateus)
+- User avatar for Rank 3 (Jovanio Neto)
+- Medal icons (Gold, Silver, Bronze) - used FontAwesome/CSS shapes as substitutes in code
+-->

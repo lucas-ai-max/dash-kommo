@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Motocor Dashboard</title>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'dashboard-bg': '#13151f',
+            'panel-bg': '#1b1e2b',
+            'sidebar-hover': '#25293c',
+            'accent-blue': '#3b82f6',
+            'accent-green': '#22c55e',
+            'accent-cyan': '#06b6d4',
+            'table-row-hover': '#232738'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- FontAwesome -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'dashboard-bg': '#13151f',
+            'panel-bg': '#1b1e2b',
+            'sidebar-hover': '#25293c',
+            'accent-blue': '#3b82f6',
+            'accent-green': '#22c55e',
+            'accent-cyan': '#06b6d4',
+            'table-row-hover': '#232738'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- Tailwind Configuration for Specific Colors -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'dashboard-bg': '#13151f',
+            'panel-bg': '#1b1e2b',
+            'sidebar-hover': '#25293c',
+            'accent-blue': '#3b82f6',
+            'accent-green': '#22c55e',
+            'accent-cyan': '#06b6d4',
+            'table-row-hover': '#232738'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Styles for Specific Glow Effects and Scrollbars -->
+<style data-purpose="custom-effects">
+    body {
+      background-color: #13151f;
+      color: #ffffff;
+    }
+
+    /* KPI Card Icon Glows */
+    .glow-icon-blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), inset 0 0 10px rgba(59, 130, 246, 0.1);
+    }
+    .glow-icon-green {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.3), inset 0 0 10px rgba(34, 197, 94, 0.1);
+    }
+    .glow-icon-cyan {
+      background: rgba(6, 182, 212, 0.15);
+      color: #22d3ee;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3), inset 0 0 10px rgba(6, 182, 212, 0.1);
+    }
+
+    /* Scrollbar customization */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #13151f; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2a2f45; 
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3b82f6; 
+    }
+  </style>
+</head>
+<body class="font-sans antialiased h-screen flex overflow-hidden selection:bg-blue-500 selection:text-white">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 flex-shrink-0 flex flex-col border-r border-gray-800/30 bg-dashboard-bg hidden md:flex">
+<!-- Profile Section -->
+<div class="p-6">
+<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 rounded-lg transition-colors">
+<img alt="Profile" class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9BI6z5K2MiqrdHHJ78nFJcBUvw4SnRnEaBz32DED9l7fPXkwYY0uoVoqo19gOysGXeHWvmkuFqTTI0_A0THDo8F-NgnU9AFSQCbF6Dso93zCwHD6Bh3OwNf1b7EeLxgLo88ku3_1zcmFwCUsi83S4jMrKPx1ceNCk2uH0uLzNrzK5U3_V9ekVPqDLrE47_lA-c6c1TCWIU1Z9-pQRxF_D8Md8YumYCI1C7-DLORmWlvxhT61gzY7TLxpHogbFUdyiPalE6MATsSM"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-white truncate">Motocor</p>
+</div>
+<i class="fa-solid fa-chevron-down text-gray-400 text-xs"></i>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 px-4 space-y-2 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-white/10 text-white shadow-lg shadow-black/10 border border-white/5" href="#">
+<i class="fa-solid fa-border-all w-5 text-center"></i>
+        Overview
+      </a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-sidebar-hover hover:text-white transition-colors" href="#">
+<i class="fa-solid fa-filter w-5 text-center"></i>
+        Funil
+      </a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-sidebar-hover hover:text-white transition-colors" href="#">
+<i class="fa-solid fa-video w-5 text-center"></i>
+        Canais
+      </a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-sidebar-hover hover:text-white transition-colors" href="#">
+<i class="fa-solid fa-users w-5 text-center"></i>
+        Vendedores
+      </a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-sidebar-hover hover:text-white transition-colors" href="#">
+<i class="fa-solid fa-robot w-5 text-center"></i>
+        IA
+      </a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-sidebar-hover hover:text-white transition-colors" href="#">
+<i class="fa-solid fa-chart-line w-5 text-center"></i>
+        Perdas
+      </a>
+</nav>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-dashboard-bg relative">
+<!-- Mobile Header Trigger (Hidden on Desktop) -->
+<div class="md:hidden p-4 flex justify-between items-center bg-panel-bg border-b border-gray-800">
+<span class="font-bold text-lg">Motocor</span>
+<button class="text-white"><i class="fa-solid fa-bars"></i></button>
+</div>
+<!-- Scrollable Content Area -->
+<div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-3xl font-bold text-white">Overview</h1>
+<p class="text-gray-400 text-sm mt-1">Visão geral do desempenho comercial</p>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<span class="text-gray-400 hidden sm:inline-block"><i class="fa-solid fa-rotate mr-1"></i> Sync: há cerca de 1 hora</span>
+<button class="px-4 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
+<i class="fa-solid fa-rotate text-xs"></i>
+            Sincronizar
+          </button>
+</div>
+</header>
+<!-- KPI Cards Grid -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+<!-- Card 1: Total Leads -->
+<article class="bg-panel-bg rounded-2xl p-5 relative overflow-hidden border border-white/5 group hover:border-white/10 transition-all">
+<div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+<div class="flex justify-between items-center relative z-10">
+<div>
+<p class="text-gray-400 text-sm font-medium">Total de Leads</p>
+<h3 class="text-3xl font-bold text-white mt-1">3,429</h3>
+</div>
+<div class="w-12 h-12 rounded-xl flex items-center justify-center glow-icon-blue">
+<i class="fa-solid fa-user-group text-xl"></i>
+</div>
+</div>
+</article>
+<!-- Card 2: Taxa de Conversão -->
+<article class="bg-panel-bg rounded-2xl p-5 relative overflow-hidden border border-white/5 group hover:border-white/10 transition-all">
+<div class="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+<div class="flex justify-between items-center relative z-10">
+<div>
+<p class="text-gray-400 text-sm font-medium">Taxa de Conversão</p>
+<h3 class="text-3xl font-bold text-white mt-1">5.83%</h3>
+</div>
+<div class="w-12 h-12 rounded-xl flex items-center justify-center glow-icon-green">
+<i class="fa-solid fa-percent text-xl"></i>
+</div>
+</div>
+</article>
+<!-- Card 3: Ticket Médio -->
+<article class="bg-panel-bg rounded-2xl p-5 relative overflow-hidden border border-white/5 group hover:border-white/10 transition-all">
+<div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+<div class="flex justify-between items-center relative z-10">
+<div>
+<p class="text-gray-400 text-sm font-medium">Ticket Médio</p>
+<h3 class="text-3xl font-bold text-white mt-1">R$ 0</h3>
+</div>
+<div class="w-12 h-12 rounded-xl flex items-center justify-center glow-icon-cyan">
+<i class="fa-solid fa-ticket text-xl"></i>
+</div>
+</div>
+</article>
+<!-- Card 4: Receita Total -->
+<article class="bg-panel-bg rounded-2xl p-5 relative overflow-hidden border border-white/5 group hover:border-white/10 transition-all">
+<div class="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+<div class="flex justify-between items-center relative z-10">
+<div>
+<p class="text-gray-400 text-sm font-medium">Receita Total</p>
+<h3 class="text-3xl font-bold text-white mt-1">R$ 0</h3>
+</div>
+<div class="w-12 h-12 rounded-xl flex items-center justify-center glow-icon-green">
+<i class="fa-solid fa-dollar-sign text-xl"></i>
+</div>
+</div>
+</article>
+</section>
+<!-- Charts Row 1 -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Line Chart: Leads vs Vendas -->
+<div class="bg-panel-bg rounded-2xl p-6 border border-white/5 flex flex-col h-[350px]">
+<h2 class="text-lg font-semibold text-gray-200 mb-4">Leads vs Vendas (Últimos 30 dias)</h2>
+<div class="flex-1 relative w-full h-full">
+<canvas id="leadsVendasChart"></canvas>
+</div>
+</div>
+<!-- Bar Chart: Performance por Canal -->
+<div class="bg-panel-bg rounded-2xl p-6 border border-white/5 flex flex-col h-[350px]">
+<h2 class="text-lg font-semibold text-gray-200 mb-4">Performance por Canal</h2>
+<div class="flex-1 relative w-full h-full">
+<canvas id="performanceChart"></canvas>
+</div>
+</div>
+</section>
+<!-- Bottom Row -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Donut Chart: Distribuição por Etapa -->
+<div class="bg-panel-bg rounded-2xl p-6 border border-white/5 flex flex-col h-[400px]">
+<h2 class="text-lg font-semibold text-gray-200 mb-2">Distribuição por Etapa</h2>
+<div class="flex-1 flex items-center relative w-full h-full">
+<div class="w-full h-full flex justify-center">
+<canvas id="distribuicaoChart"></canvas>
+</div>
+</div>
+</div>
+<!-- Table: Ranking de Vendedores -->
+<div class="bg-panel-bg rounded-2xl p-6 border border-white/5 flex flex-col h-[400px]">
+<h2 class="text-lg font-semibold text-gray-200 mb-4">Ranking de Vendedores</h2>
+<div class="overflow-x-auto flex-1">
+<table class="w-full text-left text-sm text-gray-400">
+<thead class="text-xs uppercase bg-black/20 text-gray-500 rounded-lg">
+<tr>
+<th class="px-4 py-3 rounded-l-lg" scope="col">#</th>
+<th class="px-4 py-3" scope="col">Vendedor</th>
+<th class="px-4 py-3" scope="col">Leads</th>
+<th class="px-4 py-3" scope="col">Vendas</th>
+<th class="px-4 py-3" scope="col">Conversão</th>
+<th class="px-4 py-3 rounded-r-lg" scope="col">Ticket Médio</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-800">
+<!-- Row 1 -->
+<tr class="group border-b border-gray-800/50 hover:bg-white/5 transition-colors">
+<td class="px-4 py-4 font-medium text-gray-500">1</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<img alt="User" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCY8CJq9VobvsjYxsXJC0FrZL1RIFemrVJcFhwo5AFnKIOwTXU2Ct0cY_GSasZrahf7_-zPvRqDKbE75uE9BG_p9jzeUlN8BIEwhZBK770ekmkkI83DyFbj2sxDSVTuW-1dDOkNagJyp7PtdXQO2Y5hUbQYNEXgRkLujyPLydtAGIoV6TJ1dCWB3sJs23zM0CEwPjsL0yno9FGaJMciFY35qvatMCn2TMxN7jw5KIFoLR3D1vQpnawgmNsTEiOMNaIArmm8dxxPFbk"/>
+<span class="text-gray-200 text-sm font-medium">Felipe Carvalho</span>
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+</div>
+</td>
+<td class="px-4 py-4 text-gray-300">220 <span class="text-green-500 text-xs ml-1">↑</span></td>
+<td class="px-4 py-4 text-gray-300">24 <span class="text-green-500 text-xs ml-1">↑</span></td>
+<td class="px-4 py-4 text-gray-300">5.83%</td>
+<td class="px-4 py-4 text-gray-300 flex justify-between items-center">
+                    R$ 0,00
+                    <i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group border-b border-gray-800/50 hover:bg-white/5 transition-colors">
+<td class="px-4 py-4 font-medium text-gray-500">2</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<img alt="User" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBP7siX3_T_qGv_6EJPho2fr2Et3mN3e74o--z7OG1k3nHa1nBiGBYb_3clum0065yl5SJX3AWrIzncwjPc2iW-w2QDIetDemoHlAhYvzV-RpRMRPKIvaI_dSJ_KdXsvZjrxVjO7ruJg1QSMQLn5EFBdgGLwhJaNwJczpJOIrsQo6q92g1exAXti5x_BctwV5Z4W-SgRjxhIJ2VCF_j8rvUCdPLevtUgT4XMRzaLZYZvs203aRa-8DQGfwXqnQHSddjNKRFCcYInzQ"/>
+<span class="text-gray-200 text-sm font-medium">Mateus</span>
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+</div>
+</td>
+<td class="px-4 py-4 text-gray-300">65 <span class="text-green-500 text-xs ml-1">↑</span></td>
+<td class="px-4 py-4 text-gray-300">18 <span class="text-green-500 text-xs ml-1">↑</span></td>
+<td class="px-4 py-4 text-gray-300">5.83%</td>
+<td class="px-4 py-4 text-gray-300 flex justify-between items-center">
+                    R$ 0,00
+                    <i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-white/5 transition-colors">
+<td class="px-4 py-4 font-medium text-gray-500">3</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<img alt="User" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9BI6z5K2MiqrdHHJ78nFJcBUvw4SnRnEaBz32DED9l7fPXkwYY0uoVoqo19gOysGXeHWvmkuFqTTI0_A0THDo8F-NgnU9AFSQCbF6Dso93zCwHD6Bh3OwNf1b7EeLxgLo88ku3_1zcmFwCUsi83S4jMrKPx1ceNCk2uH0uLzNrzK5U3_V9ekVPqDLrE47_lA-c6c1TCWIU1Z9-pQRxF_D8Md8YumYCI1C7-DLORmWlvxhT61gzY7TLxpHogbFUdyiPalE6MATsSM"/>
+<span class="text-gray-200 text-sm font-medium">Jovanio Neto</span>
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+</div>
+</td>
+<td class="px-4 py-4 text-gray-300">31 <span class="text-green-500 text-xs ml-1">↑</span></td>
+<td class="px-4 py-4 text-gray-300">8 <span class="text-red-500 text-xs ml-1">↓</span></td>
+<td class="px-4 py-4 text-gray-300">9.03%</td>
+<td class="px-4 py-4 text-gray-300 flex justify-between items-center">
+                    R$ 0,00
+                    <i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- END: Main Content -->
+<!-- BEGIN: Chart.js Initialization -->
+<script data-purpose="charts-setup">
+    // Global defaults for dark theme
+    Chart.defaults.color = '#9ca3af';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.03)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    // 1. Leads vs Vendas (Line Chart)
+    const ctxLeadsVendas = document.getElementById('leadsVendasChart').getContext('2d');
+    
+    // Gradients
+    const gradientLeads = ctxLeadsVendas.createLinearGradient(0, 0, 0, 300);
+    gradientLeads.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+    gradientLeads.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+    const gradientVendas = ctxLeadsVendas.createLinearGradient(0, 0, 0, 300);
+    gradientVendas.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+    gradientVendas.addColorStop(1, 'rgba(34, 197, 94, 0.0)');
+
+    new Chart(ctxLeadsVendas, {
+      type: 'line',
+      data: {
+        labels: ['Dia 1', 'Dia 5', 'Dia 10', 'Dia 15', 'Dia 20', 'Dia 25', 'Dia 30'],
+        datasets: [{
+          label: 'Leads',
+          data: [100, 240, 140, 190, 270, 210, 250],
+          borderColor: '#3b82f6',
+          backgroundColor: gradientLeads,
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4
+        }, {
+          label: 'Vendas',
+          data: [20, 50, 40, 60, 120, 80, 70],
+          borderColor: '#22c55e',
+          backgroundColor: gradientVendas,
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true, boxWidth: 6, padding: 20 }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { display: true, color: 'rgba(255,255,255,0.02)' },
+            ticks: { display: false }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          }
+        }
+      }
+    });
+
+    // 2. Performance por Canal (Bar Chart)
+    const ctxPerf = document.getElementById('performanceChart').getContext('2d');
+    new Chart(ctxPerf, {
+      type: 'bar',
+      data: {
+        labels: ['Organic', 'Paid', 'Social', 'Email', 'Referral', 'Other', 'Direct', 'Affiliate'],
+        datasets: [{
+          label: 'Volume',
+          data: [65, 45, 50, 30, 20, 15, 8, 5],
+          backgroundColor: '#3b82f6',
+          borderRadius: 2,
+          barThickness: 16
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            display: false,
+            grid: { display: false }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { display: false }
+          }
+        }
+      }
+    });
+
+    // 3. Distribuição por Etapa (Donut Chart)
+    const ctxDist = document.getElementById('distribuicaoChart').getContext('2d');
+    new Chart(ctxDist, {
+      type: 'doughnut',
+      data: {
+        labels: ['EM ATENDIMENTO', 'FECHADO-PERDIDO', 'deffinir modelo', 'Venda perdida', 'FECHADO-GANHO', 'FECHADO-PERDIDO', 'EM ATENDIMENTO'],
+        datasets: [{
+          data: [239, 28, 29, 5, 153, 10, 11],
+          backgroundColor: [
+            '#3b82f6',
+            '#10b981',
+            '#a855f7',
+            '#f59e0b',
+            '#ef4444',
+            '#14b8a6',
+            '#6366f1'
+          ],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'right',
+            align: 'center',
+            labels: {
+              color: '#9ca3af',
+              font: { size: 10, family: "'Inter', sans-serif" },
+              usePointStyle: true,
+              pointStyle: 'circle',
+              boxWidth: 6,
+              padding: 10,
+              generateLabels: (chart) => {
+                const datasets = chart.data.datasets;
+                return chart.data.labels.map((label, i) => ({
+                  text: `${label} (${datasets[0].data[i]})`,
+                  fillStyle: datasets[0].backgroundColor[i],
+                  hidden: false,
+                  index: i,
+                  strokeStyle: 'transparent'
+                }));
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+<!-- END: Chart.js Initialization -->
+</body></html>

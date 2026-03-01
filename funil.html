@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Motocor Dashboard - Funil de Vendas Ultra Moderno</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dashboard: {
+                            bg: '#0D0D0D',
+                            card: '#16181F', // Darker charcoal for glassmorphism base
+                            sidebar: '#111319',
+                            accent: '#8b5cf6',
+                            success: '#00FF87',
+                            danger: '#FF2200',
+                            text: '#e5e7eb',
+                            muted: '#888888',
+                            border: '#2A2D3A',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    backgroundImage: {
+                        'noise': "url('https://grainy-gradients.vercel.app/noise.svg')",
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer components {
+      .glass-card {
+        @apply bg-dashboard-card/60 backdrop-blur-xl border border-white/[0.05] relative;
+      }
+      .glass-card::before {
+        content: "";
+        @apply absolute inset-0 bg-noise opacity-[0.03] pointer-events-none rounded-2xl;
+      }
+      .funnel-layer {
+        @apply relative h-12 w-full mx-auto -mb-1 transition-all duration-300;
+        transform: perspective(1000px) rotateX(10deg);
+      }
+      .funnel-shape {
+        @apply absolute inset-0 flex items-center justify-center text-white font-mono font-bold tracking-tight backdrop-blur-md shadow-lg;
+        background: linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.5) 50%, rgba(139, 92, 246, 0.2) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 0 15px rgba(139, 92, 246, 0.1);
+      }.funnel-layer-1 { width: 96%; clip-path: polygon(0% 0%, 100% 0%, 96% 100%, 4% 100%); z-index: 7; }
+      .funnel-layer-2 { width: 88%; clip-path: polygon(0% 0%, 100% 0%, 95% 100%, 5% 100%); z-index: 6; }
+      .funnel-layer-3 { width: 80%; clip-path: polygon(0% 0%, 100% 0%, 94% 100%, 6% 100%); z-index: 5; }
+      .funnel-layer-4 { width: 72%; clip-path: polygon(0% 0%, 100% 0%, 93% 100%, 7% 100%); z-index: 4; }
+      .funnel-layer-5 { width: 64%; clip-path: polygon(0% 0%, 100% 0%, 92% 100%, 8% 100%); z-index: 3; }
+      .funnel-layer-6 { width: 56%; clip-path: polygon(0% 0%, 100% 0%, 91% 100%, 9% 100%); z-index: 2; }
+      .funnel-layer-7 { width: 48%; clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%); z-index: 1; }
+      .funnel-layer:hover .funnel-shape {
+        background: linear-gradient(90deg, rgba(167, 139, 250, 0.4) 0%, rgba(167, 139, 250, 0.7) 50%, rgba(167, 139, 250, 0.4) 100%);
+        box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+        border-color: rgba(167, 139, 250, 0.5);
+      }
+      .sparkline {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        animation: dash 1.5s ease-out forwards;
+      }
+      @keyframes dash {
+        to { stroke-dashoffset: 0; }
+      }
+    }
+  </style>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333a4d;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        .perspective-container {
+            perspective: 1200px;
+        }
+    </style>
+</head>
+
+<body class="bg-dashboard-bg text-dashboard-text overflow-hidden flex h-screen font-sans">
+    <aside class="w-64 bg-[#0A0C10] border-r border-white/[0.05] flex flex-col h-full flex-shrink-0 z-20">
+        <div class="h-20 flex items-center px-6 border-b border-white/[0.05]">
+            <img alt="Company Logo" class="w-8 opacity-80"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBW7FeV4CskQpdo5Lliw5LM7MnwISKm5nj632I9Edtk5GEckIcG3XKdu4rgd4wi_JywPDSZxqf8mS0URus0fjbZuhkjk6peero8J10_UaHHw_y9kpgdVJ1IpTTvGAgI4d2lJpNRrSTg29LQVZ3aBE1LofvXo14GP6aJxnFDCci53Ku2ADU4mhVXvpt6k86m8MroTFAlS6iMQe25HU7X4vrkQC3e7kOyUg81HTCB0Q4blpHjvl0o5PKvIkVeqhrW6nuAjKfuyYKNwC0" />
+        </div>
+        <nav class="flex-1 overflow-y-auto py-6 space-y-1 px-3">
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-dashboard-muted rounded-lg hover:bg-white/[0.03] hover:text-white transition-colors tracking-wide"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl font-light">grid_view</span>
+                Overview
+            </a>
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-white rounded-lg bg-white/[0.03] border border-white/[0.05] shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl text-dashboard-accent">filter_alt</span>
+                Funil
+            </a>
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-dashboard-muted rounded-lg hover:bg-white/[0.03] hover:text-white transition-colors tracking-wide"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl font-light">hub</span>
+                Canais
+            </a>
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-dashboard-muted rounded-lg hover:bg-white/[0.03] hover:text-white transition-colors tracking-wide"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl font-light">groups</span>
+                Vendedores
+            </a>
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-dashboard-muted rounded-lg hover:bg-white/[0.03] hover:text-white transition-colors tracking-wide"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl font-light">smart_toy</span>
+                IA
+            </a>
+            <a class="nav-item flex items-center px-4 py-3 text-sm font-medium text-dashboard-muted rounded-lg hover:bg-white/[0.03] hover:text-white transition-colors tracking-wide"
+                href="#">
+                <span class="material-symbols-outlined mr-3 text-xl font-light">trending_down</span>
+                Perdas
+            </a>
+        </nav>
+        <div class="border-t border-white/[0.05] p-4 bg-[#0A0C10]">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <img alt="User Avatar"
+                        class="h-8 w-8 rounded-full border border-white/10 ring-2 ring-dashboard-accent/20"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKcmtsvMOFAJKbHeYCShr4_dxE8992OBWrSQzYoAhe7wSyeXaP0lGTvOiKDgWFRODqre7Cifi1JaAB6fbz0GwFMULf0749pVj3e9O_QfDdusihflFpc-Rg3pGQGxvkGPpHsDA8eZwgBhxGkmLJP14CJ53JgixSD8e12fFPiJ42qngUIwEiP_QcpttwtBzKD2K_xJmKPz__sycgswCAv2IB7jp7p5pxlDb2Kzg1_7yzwSr8qTu5YdvgfNPXF0yh8QCFQpamF3bcuBs" />
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-semibold text-white">Usuário Admin</p>
+                    <p class="text-[10px] text-dashboard-muted font-mono uppercase tracking-wider">v2.4.0 PRO</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+    <main class="flex-1 flex flex-col overflow-hidden bg-dashboard-bg relative">
+        <div
+            class="absolute top-1/2 left-1/3 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none">
+        </div>
+        <header
+            class="bg-dashboard-bg/80 backdrop-blur-md border-b border-white/[0.05] py-5 px-8 flex justify-between items-end z-10 sticky top-0">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Funil de Conversão</h1>
+                <p class="text-dashboard-muted text-xs mt-1 font-medium tracking-wide">ANÁLISE DE PIPELINE EM TEMPO REAL
+                </p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <span
+                    class="text-[10px] text-dashboard-muted flex items-center gap-2 font-mono uppercase tracking-wider">
+                    <span class="w-1.5 h-1.5 rounded-full bg-dashboard-success shadow-[0_0_8px_#00FF87]"></span>
+                    LIVE SYNC: 14:02
+                </span>
+                <button
+                    class="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/5 transition-colors text-white text-xs font-medium bg-white/[0.02]">
+                    <span class="material-symbols-outlined text-sm">sync</span>
+                    Sincronizar
+                </button>
+            </div>
+        </header>
+        <div class="flex-1 overflow-y-auto p-6 lg:p-8 bg-noise bg-opacity-[0.02]">
+            <div class="flex gap-3 mb-6">
+                <button
+                    class="px-5 py-1.5 text-white rounded-full text-xs font-semibold shadow-[0_0_15px_rgba(139,92,246,0.4)] transition-all transform hover:scale-105 bg-dashboard-accent border border-white/10 tracking-wide uppercase">Vendedores</button>
+                <button
+                    class="px-5 py-1.5 bg-transparent hover:bg-white/[0.03] text-dashboard-muted hover:text-white rounded-full text-xs font-medium border border-white/[0.05] hover:border-white/20 transition-all tracking-wide uppercase">
+                    Teste Implantação
+                </button>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full pb-6">
+                <div
+                    class="xl:col-span-7 glass-card rounded-2xl p-8 shadow-2xl overflow-hidden flex flex-col h-full min-h-[550px]">
+                    <div class="absolute top-0 right-0 p-6 opacity-[0.02] pointer-events-none">
+                        <span class="material-symbols-outlined text-[150px]">filter_alt</span>
+                    </div>
+                    <div class="flex justify-between items-start mb-4 z-10">
+                        <div>
+                            <h2 class="text-lg font-bold text-white tracking-tight">Stage Visualization</h2>
+                            <p class="text-dashboard-muted text-[10px] uppercase tracking-widest mt-1">Fluxo &amp;
+                                Retenção</p>
+                        </div>
+                        <button
+                            class="text-dashboard-muted hover:text-white transition-colors p-2 rounded-full hover:bg-white/5">
+                            <span class="material-symbols-outlined text-lg">more_horiz</span>
+                        </button>
+                    </div>
+                    <div class="flex-1 flex flex-col items-center justify-center relative perspective-container py-4">
+                        <div class="w-full max-w-3xl space-y-1">
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p
+                                        class="text-[10px] font-bold text-dashboard-muted uppercase tracking-[0.1em] group-hover:text-white transition-colors">
+                                        Contato</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-1">
+                                        <div class="funnel-shape text-sm">2,758</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                    <div class="flex flex-col items-start">
+                                        <span
+                                            class="text-dashboard-success font-mono font-bold text-xs flex items-center gap-1 drop-shadow-[0_0_8px_rgba(0,255,135,0.3)]">
+                                            99.4% <span
+                                                class="material-symbols-outlined text-[10px]">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p
+                                        class="text-[10px] font-bold text-dashboard-muted uppercase tracking-[0.1em] group-hover:text-white transition-colors">
+                                        Atendimento</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-2">
+                                        <div class="funnel-shape text-sm">2,742</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                    <div class="flex flex-col items-start">
+                                        <span
+                                            class="text-dashboard-success font-mono font-bold text-xs flex items-center gap-1 drop-shadow-[0_0_8px_rgba(0,255,135,0.3)]">
+                                            38.4% <span
+                                                class="material-symbols-outlined text-[10px]">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-12 my-2">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p
+                                        class="text-[10px] font-extrabold text-dashboard-accent uppercase tracking-[0.1em] drop-shadow-[0_0_10px_rgba(139,92,246,0.5)]">
+                                        Negociação</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-3 h-14 z-10">
+                                        <div
+                                            class="funnel-shape bg-gradient-to-r from-purple-600/60 via-purple-500/80 to-purple-600/60 border-purple-400/50 shadow-[0_0_30px_rgba(139,92,246,0.4)] text-base ring-1 ring-purple-400/30">
+                                            1,052</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                    <div class="flex flex-col items-start">
+                                        <span
+                                            class="text-[#FFC107] font-mono font-bold text-xs flex items-center gap-1 drop-shadow-[0_0_8px_rgba(255,193,7,0.3)]">
+                                            99.9% <span
+                                                class="material-symbols-outlined text-[10px]">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p
+                                        class="text-[10px] font-bold text-dashboard-muted uppercase tracking-[0.1em] group-hover:text-white transition-colors">
+                                        Follow-up</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-4">
+                                        <div class="funnel-shape text-sm">1,051</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                    <div class="flex flex-col items-start">
+                                        <span
+                                            class="text-dashboard-danger font-mono font-bold text-xs flex items-center gap-1 drop-shadow-[0_0_8px_rgba(255,34,0,0.3)]">
+                                            18.9% <span
+                                                class="material-symbols-outlined text-[10px]">trending_down</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p
+                                        class="text-[10px] font-bold text-dashboard-muted uppercase tracking-[0.1em] group-hover:text-white transition-colors">
+                                        Reaquecer</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-5">
+                                        <div class="funnel-shape text-sm opacity-50 bg-gray-800/40">0</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                    <div class="flex flex-col items-start opacity-30">
+                                        <span class="text-dashboard-muted font-mono text-xs">—</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p class="text-[10px] font-bold text-emerald-500/70 uppercase tracking-[0.1em]">
+                                        Ganho</p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-6">
+                                        <div
+                                            class="funnel-shape bg-gradient-to-r from-emerald-900/40 via-emerald-800/60 to-emerald-900/40 border-emerald-500/20 text-emerald-100 text-sm">
+                                            199</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                </div>
+                            </div>
+                            <div class="flex items-center w-full group h-10">
+                                <div class="w-[20%] text-right pr-4">
+                                    <p class="text-[10px] font-bold text-red-500/70 uppercase tracking-[0.1em]">Perdido
+                                    </p>
+                                </div>
+                                <div class="w-[60%] flex justify-center relative">
+                                    <div class="funnel-layer funnel-layer-7">
+                                        <div
+                                            class="funnel-shape bg-gradient-to-r from-red-900/40 via-red-800/60 to-red-900/40 border-red-500/20 text-red-100 text-sm">
+                                            833</div>
+                                    </div>
+                                </div>
+                                <div class="w-[20%] pl-4 flex items-center">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="xl:col-span-5 glass-card rounded-2xl p-0 shadow-xl flex flex-col h-full overflow-hidden">
+                    <div class="p-6 border-b border-white/[0.05] flex justify-between items-center bg-white/[0.01]">
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wide">Detalhes por Etapa</h2>
+                        <div class="flex gap-2">
+                            <button
+                                class="p-1.5 rounded-md hover:bg-white/[0.05] text-dashboard-muted hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-sm">download</span>
+                            </button>
+                            <button
+                                class="p-1.5 rounded-md hover:bg-white/[0.05] text-dashboard-muted hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-sm">filter_list</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto flex-1 custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr
+                                    class="text-[10px] text-dashboard-muted border-b border-white/[0.05] bg-white/[0.01]">
+                                    <th class="px-6 py-3 font-medium uppercase tracking-widest text-dashboard-muted/60">
+                                        Etapa</th>
+                                    <th
+                                        class="px-6 py-3 font-medium uppercase tracking-widest text-right text-dashboard-muted/60">
+                                        Leads</th>
+                                    <th
+                                        class="px-6 py-3 font-medium uppercase tracking-widest text-right text-dashboard-muted/60 w-32">
+                                        Conv.</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm">
+                                <tr class="group hover:bg-white/[0.02] transition-all duration-200 border-none">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-1.5 h-8 rounded-full bg-blue-500/40 shadow-[0_0_8px_rgba(59,130,246,0.4)]">
+                                            </div>
+                                            <div class="flex flex-col">
+                                                <span class="text-xs font-semibold text-gray-200">Contato Inicial</span>
+                                                <span
+                                                    class="text-[9px] text-dashboard-muted uppercase tracking-wider">Aberto</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-dashboard-text font-mono text-xs">2,758</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <svg class="w-8 h-4 text-dashboard-muted opacity-20" fill="none"
+                                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 12">
+                                                <path d="M1 11L5 8L9 10L15 4L19 6L23 1"></path>
+                                            </svg>
+                                            <span class="text-dashboard-muted text-[10px]">—</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="group hover:bg-white/[0.02] transition-all duration-200 border-none">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-1.5 h-8 rounded-full bg-indigo-500/40 shadow-[0_0_8px_rgba(99,102,241,0.4)]">
+                                            </div>
+                                            <div class="flex flex-col">
+                                                <span class="text-xs font-semibold text-gray-200">Em Atendimento</span>
+                                                <span
+                                                    class="text-[9px] text-dashboard-muted uppercase tracking-wider">WIP</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-dashboard-text font-mono text-xs">2,742</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <svg class="w-8 h-4 text-dashboard-success" fill="none"
+                                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 12">
+                                                <path class="sparkline" d="M1 11L5 9L9 10L15 3L19 5L23 1"></path>
+                                            </svg>
+                                            <span
+                                                class="text-dashboard-success text-[10px] font-mono font-bold">99.4%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="relative bg-gradient-to-r from-purple-900/40 to-transparent border-l-[3px] border-dashboard-accent">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="relative">
+                                                <div
+                                                    class="w-2 h-2 rounded-full bg-dashboard-accent animate-pulse shadow-[0_0_10px_#8b5cf6]">
+                                                </div>
+                                                <div
+                                                    class="absolute inset-0 rounded-full bg-dashboard-accent opacity-50 animate-ping">
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-col">
+                                                <span
+                                                    class="text-xs font-bold text-white tracking-wide">NEGOCIAÇÕES</span>
+                                                <span
+                                                    class="text-[9px] text-purple-300 uppercase tracking-widest font-semibold">Active
+                                                    Stage</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span
+                                            class="text-white font-mono font-bold text-sm drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">1,052</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <svg class="w-8 h-4 text-dashboard-success" fill="none"
+                                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 12">
+                                                <path class="sparkline" d="M1 11L8 8L12 9L18 3L23 4"></path>
+                                            </svg>
+                                            <span
+                                                class="text-dashboard-success text-[10px] font-mono font-bold shadow-[0_0_10px_rgba(0,255,135,0.2)]">38.4%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="group hover:bg-white/[0.02] transition-all duration-200 border-none opacity-50">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-1.5 h-8 rounded-full bg-yellow-500/20"></div>
+                                            <div class="flex flex-col">
+                                                <span class="text-xs font-medium text-dashboard-muted">Reaquecer</span>
+                                                <span
+                                                    class="text-[9px] text-dashboard-muted uppercase tracking-wider">Pendente</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-dashboard-muted font-mono text-xs">0</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <span class="text-dashboard-muted text-[10px]">—</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="group hover:bg-white/[0.02] transition-all duration-200 border-none">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-1.5 h-8 rounded-full bg-orange-500/40 shadow-[0_0_8px_rgba(249,115,22,0.4)]">
+                                            </div>
+                                            <div class="flex flex-col">
+                                                <span class="text-xs font-semibold text-gray-200">Acompanhamento</span>
+                                                <span
+                                                    class="text-[9px] text-dashboard-muted uppercase tracking-wider">Follow-up</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-dashboard-text font-mono text-xs">1,051</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <svg class="w-8 h-4 text-yellow-400" fill="none" stroke="currentColor"
+                                                stroke-width="2" viewBox="0 0 24 12">
+                                                <path class="sparkline" d="M1 11L6 9L12 10L18 2L23 3"></path>
+                                            </svg>
+                                            <span class="text-yellow-400 text-[10px] font-mono font-bold">99.9%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="group hover:bg-green-500/[0.05] transition-all duration-200 border-none">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <span
+                                                class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+                                                <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
+                                            </span>
+                                            <span class="text-xs font-semibold text-gray-300">Fechado-Ganho</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-emerald-400 font-mono font-bold text-xs">199</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-dashboard-muted text-[10px]">—</span>
+                                    </td>
+                                </tr>
+                                <tr class="group hover:bg-red-500/[0.05] transition-all duration-200 border-none">
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <span
+                                                class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 border border-red-500/30">
+                                                <span class="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                                            </span>
+                                            <span class="text-xs font-semibold text-gray-300">Fechado-Perdido</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <span class="text-red-400 font-mono font-bold text-xs">833</span>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <svg class="w-8 h-4 text-dashboard-danger" fill="none" stroke="currentColor"
+                                                stroke-width="2" viewBox="0 0 24 12">
+                                                <path class="sparkline" d="M1 2L6 4L12 3L18 10L23 11"></path>
+                                            </svg>
+                                            <span
+                                                class="text-dashboard-danger text-[10px] font-mono font-bold">18.9%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+
+</html>

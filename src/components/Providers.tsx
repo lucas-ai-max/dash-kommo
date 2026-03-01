@@ -9,7 +9,7 @@ import {
 import type { Periodo } from "@/types/metrics";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const [periodo, setPeriodo] = useState<Periodo>("mes_atual");
+  const [periodo, setPeriodo] = useState<Periodo>("30dias");
 
   return (
     <DateFilterContext.Provider

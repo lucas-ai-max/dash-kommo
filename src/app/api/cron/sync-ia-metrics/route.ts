@@ -63,10 +63,21 @@ interface ChatRow {
   channel_phone?: string | null;
 }
 
+/** Converte timestamp UTC (string ISO ou unix seconds) para data em UTC-3 (São Paulo) */
+function toSaoPauloDateStr(utcTimestamp: string | number | null | undefined): string | null {
+  if (!utcTimestamp) return null;
+  const ms = typeof utcTimestamp === "number"
+    ? utcTimestamp * 1000
+    : new Date(utcTimestamp).getTime();
+  if (isNaN(ms)) return null;
+  // UTC-3: subtrai 3 horas
+  const spDate = new Date(ms - 3 * 60 * 60 * 1000);
+  return spDate.toISOString().slice(0, 10);
+}
+
 function getDateKey(chat: ChatRow): string | null {
   const dateStr = chat.created_at || chat.updated_at;
-  if (!dateStr) return null;
-  return dateStr.slice(0, 10);
+  return toSaoPauloDateStr(dateStr);
 }
 
 /** Normaliza telefone para comparação (só dígitos) */
@@ -390,7 +401,7 @@ export async function GET(request: NextRequest) {
           const perLeadData = calcResponseTimePerLead(chatEvents, botId, erickId);
           const perLeadRows = Array.from(perLeadData.entries()).map(([leadId, times]) => ({
             lead_id: leadId,
-            data_conversa: new Date((firstEventByLead.get(leadId) ?? 0) * 1000).toISOString().slice(0, 10),
+            data_conversa: toSaoPauloDateStr(firstEventByLead.get(leadId) ?? null) ?? "",
             tempo_bot_seg: times.bot_seg,
             tempo_erick_min: times.erick_min,
             calculated_at: new Date().toISOString(),
@@ -487,7 +498,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 6) Calcular métricas por dia
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toSaoPauloDateStr(new Date().toISOString()) ?? new Date().toISOString().slice(0, 10);
     const rows = [];
 
     for (const [day, dayChats] of chatsByDay) {

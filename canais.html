@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Performance de Canais Moderna</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind Config for Custom Colors and Fonts -->
+    <script>    tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dashboard-bg': '#0F1115',
+                        'card-bg': '#1E212B',
+                        'neon-green': '#00D64F',
+                        'neon-purple': '#8B5CF6',
+                        'neon-blue': '#3B82F6',
+                        'neon-orange': '#F97316',
+                        'neon-red': '#EF4444',
+                        'neon-gold': '#FACC15',
+                        'neon-silver': '#E2E8F0',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'glow-green': '0 0 15px rgba(0, 214, 79, 0.6)',
+                        'glow-purple': '0 0 15px rgba(139, 92, 246, 0.6)',
+                        'glow-blue': '0 0 15px rgba(59, 130, 246, 0.6)',
+                        'glow-orange': '0 0 15px rgba(249, 115, 22, 0.6)',
+                        'glow-red': '0 0 15px rgba(239, 68, 68, 0.6)',
+                        'glow-gold': '0 0 20px rgba(250, 204, 21, 0.7)',
+                        'glow-silver': '0 0 20px rgba(226, 232, 240, 0.7)',
+                    }
+                }
+            }
+        }</script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <style data-purpose="custom-chart-styles">
+        /* Circular Progress Chart CSS */
+        .circular-chart {
+            display: block;
+            margin: 10px auto;
+            max-width: 80%;
+            max-height: 250px;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #333;
+            stroke-width: 3.8;
+        }
+
+        .circle {
+            fill: none;
+            stroke-width: 2.8;
+            stroke-linecap: round;
+            animation: progress 1s ease-out forwards;
+        }
+
+        @keyframes progress {
+            0% {
+                stroke-dasharray: 0 100;
+            }
+        }
+
+        .percentage {
+            fill: #fff;
+            font-family: sans-serif;
+            font-weight: bold;
+            font-size: 0.5em;
+            text-anchor: middle;
+        }
+    </style>
+</head>
+
+<body class="bg-dashboard-bg text-white font-sans min-h-screen p-4 md:p-8">
+    <!-- BEGIN: MainHeader -->
+    <header
+        class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-gray-800 pb-6">
+        <!-- Title Section -->
+        <div data-purpose="header-title">
+            <h1 class="text-3xl font-bold tracking-tight text-white mb-1">Performance de Canais Moderna</h1>
+            <p class="text-gray-400 text-sm">Análise de aquisição e eficiência por origem de leads</p>
+        </div>
+        <!-- Actions Section -->
+        <div class="flex flex-col md:flex-row items-end md:items-center gap-4" data-purpose="header-actions">
+            <div class="flex flex-col md:flex-row items-end md:items-center gap-4">
+                <div class="flex items-center text-gray-400 text-xs gap-2">
+                    <span>Última sincronização: 2 min atrás</span>
+                    <i class="fas fa-sync-alt cursor-pointer hover:text-white transition-colors"></i>
+                </div>
+                <button
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-all shadow-lg hover:shadow-blue-500/20 flex items-center gap-2 text-sm">
+                    <i class="fas fa-cloud-download-alt"></i>
+                    Sincronizar
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- END: MainHeader -->
+    <!-- BEGIN: MainContent -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- BEGIN: ChannelCardsSection (Left Side) -->
+        <!-- This section takes up 2/3 of the width on large screens -->
+        <section class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" data-purpose="channel-grid">
+            <!-- Card 1: WhatsApp -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-green/50 shadow-glow-green p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-green/10 flex items-center justify-center text-neon-green">
+                            <i class="fab fa-whatsapp text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">WhatsApp</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">2500 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-green w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="20, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">20%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">2000 Leads Perdidos</p>
+                </div>
+            </article>
+            <!-- Card 2: Instagram -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-purple/50 shadow-glow-purple p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-purple/10 flex items-center justify-center text-neon-purple">
+                            <i class="fab fa-instagram text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">Instagram</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">1800 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-purple w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="20, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">20%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">1440 Leads Perdidos</p>
+                </div>
+            </article>
+            <!-- Card 3: Site -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-blue/50 shadow-glow-blue p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-blue/10 flex items-center justify-center text-neon-blue">
+                            <i class="fas fa-window-maximize text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">Site</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">1200 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-blue w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="25, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">25%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">900 Leads Perdidos</p>
+                </div>
+            </article>
+            <!-- Card 4: Facebook Ads (Blue) -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-blue/50 shadow-glow-blue p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-blue/10 flex items-center justify-center text-neon-blue">
+                            <i class="fab fa-facebook-f text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">Facebook Ads</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">3500 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-blue w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="20, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">20%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">2800 Leads Perdidos</p>
+                </div>
+            </article>
+            <!-- Card 5: Facebook Ads (Orange) -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-orange/50 shadow-glow-orange p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-orange/10 flex items-center justify-center text-neon-orange">
+                            <i class="fab fa-facebook-f text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">Facebook Ads</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">3500 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-orange w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="20, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">20%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">2800 Leads Perdidos</p>
+                </div>
+            </article>
+            <!-- Card 6: Google Ads -->
+            <article
+                class="bg-card-bg rounded-xl border-neon-red/50 shadow-glow-red p-5 relative overflow-hidden group border-2">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-full bg-neon-red/10 flex items-center justify-center text-neon-red">
+                            <i class="fas fa-caret-up text-xl transform scale-150"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg">Google Ads</h3>
+                    </div>
+                </div>
+                <div class="text-center mb-2">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p class="text-xl font-bold text-white">4000 Leads</p>
+                </div>
+                <!-- Circular Progress -->
+                <div class="relative w-32 h-32 mx-auto my-4">
+                    <svg class="circular-chart text-neon-red w-full h-full" viewbox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path class="circle stroke-current"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            stroke-dasharray="20, 100"></path>
+                        <text class="percentage text-xs" x="18" y="20.35">20%</text>
+                        <text class="fill-gray-400 text-[0.18em] text-center" text-anchor="middle" x="18"
+                            y="26">Conversão</text>
+                    </svg>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-700 text-center">
+                    <p class="text-gray-500 text-[11px]">3200 Leads Perdidos</p>
+                </div>
+            </article>
+        </section>
+        <!-- END: ChannelCardsSection -->
+        <!-- BEGIN: Summary & Highlights (Right Side) -->
+        <aside class="lg:col-span-1 flex flex-col gap-6">
+            <!-- Donut Chart Container -->
+            <div class="bg-card-bg rounded-xl p-6 shadow-lg border border-gray-800" data-purpose="volume-chart">
+                <h3 class="text-lg font-bold mb-4 text-left w-full">Volume de Leads por Canal</h3>
+                <div class="flex flex-row items-center gap-4 w-full">
+                    <!-- Donut Chart Left (40%) -->
+                    <div class="w-2/5 flex justify-center">
+                        <div class="relative w-32 h-32">
+                            <svg class="transform -rotate-90 w-full h-full" viewbox="0 0 100 100">
+                                <circle cx="50%" cy="50%" fill="transparent" r="40" stroke="#EF4444"
+                                    stroke-dasharray="31 69" stroke-dashoffset="0" stroke-width="12"></circle>
+                                <circle cx="50%" cy="50%" fill="transparent" r="40" stroke="#3B82F6"
+                                    stroke-dasharray="27 73" stroke-dashoffset="-31" stroke-width="12"></circle>
+                                <circle cx="50%" cy="50%" fill="transparent" r="40" stroke="#00D64F"
+                                    stroke-dasharray="19 81" stroke-dashoffset="-58" stroke-width="12"></circle>
+                                <circle cx="50%" cy="50%" fill="transparent" r="40" stroke="#8B5CF6"
+                                    stroke-dasharray="14 86" stroke-dashoffset="-77" stroke-width="12"></circle>
+                                <circle cx="50%" cy="50%" fill="transparent" r="40" stroke="#94A3B8"
+                                    stroke-dasharray="9 91" stroke-dashoffset="-91" stroke-width="12"></circle>
+                                <!-- Inner circle for donut hole background not strictly needed if fill transparent, but helps with contrast -->
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span class="text-gray-500 text-[10px]">Total</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Legend Right (60%) -->
+                    <div class="w-3/5 space-y-3">
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-neon-red"></span>
+                                <span class="text-gray-300">Google Ads</span>
+                            </div>
+                            <span class="font-medium text-gray-400">31%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-neon-blue"></span>
+                                <span class="text-gray-300">Facebook Ads</span>
+                            </div>
+                            <span class="font-medium text-gray-400">27%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-neon-green"></span>
+                                <span class="text-gray-300">WhatsApp</span>
+                            </div>
+                            <span class="font-medium text-gray-400">19%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-neon-purple"></span>
+                                <span class="text-gray-300">Instagram</span>
+                            </div>
+                            <span class="font-medium text-gray-400">14%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                                <span class="text-gray-300">Site</span>
+                            </div>
+                            <span class="font-medium text-gray-400">9%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Highlight Cards Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4"
+                data-purpose="highlight-cards"><!-- Best Volume -->
+                <div
+                    class="bg-card-bg rounded-xl border-neon-gold/50 shadow-glow-gold p-4 flex flex-col items-center text-center justify-center border-2">
+                    <h4 class="text-neon-gold text-[10px] uppercase font-bold tracking-wider mb-3">Melhor Canal em
+                        Volume</h4>
+                    <div
+                        class="w-10 h-10 rounded-lg bg-[#3A2E05] border border-neon-gold flex items-center justify-center text-neon-gold mb-3">
+                        <i class="fas fa-caret-up text-xl transform scale-125"></i>
+                    </div>
+                    <p class="font-bold text-base text-white">Google Ads</p>
+                    <p class="text-xl font-bold mt-1 text-white">4000 Leads</p>
+                </div>
+                <!-- Best Conversion -->
+                <div
+                    class="bg-card-bg rounded-xl border-neon-silver/50 shadow-glow-silver p-4 flex flex-col items-center text-center justify-center border-2">
+                    <h4 class="text-gray-300 text-[10px] uppercase font-bold tracking-wider mb-3">Melhor Canal em
+                        Conversão</h4>
+                    <div
+                        class="w-10 h-10 rounded-lg bg-gray-700 border border-gray-500 flex items-center justify-center text-white mb-3">
+                        <i class="fas fa-window-maximize text-sm"></i>
+                    </div>
+                    <p class="font-bold text-base text-white">Site</p>
+                    <p class="text-xl font-bold mt-1 text-white">25% Taxa</p>
+                </div>
+            </div>
+        </aside>
+        <!-- END: Summary & Highlights -->
+    </main>
+    <!-- END: MainContent -->
+</body>
+
+</html>

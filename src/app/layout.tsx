@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
+import LayoutWrapper from "@/components/layout/LayoutWrapper";
 import Providers from "@/components/Providers";
 import ClientOnly from "@/components/ClientOnly";
 
 export const metadata: Metadata = {
   title: "Motocor Dashboard",
   description: "Dashboard Comercial Motocor",
+  icons: {
+    icon: "/favicon.png",
+  }
 };
 
 export default function RootLayout({
@@ -19,10 +22,7 @@ export default function RootLayout({
       <body className="bg-gray-950 text-gray-100 antialiased" suppressHydrationWarning>
         <ClientOnly fallback={null}>
           <Providers>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="ml-64 flex-1">{children}</main>
-            </div>
+            <LayoutWrapper>{children}</LayoutWrapper>
           </Providers>
         </ClientOnly>
       </body>
