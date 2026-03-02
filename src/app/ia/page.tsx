@@ -266,6 +266,7 @@ export default function IAPage() {
                 <XAxis dataKey="nivel" tick={{ fill: "#9ca3af", fontSize: 11 }} tickLine={false} />
                 <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} tickLine={false} />
                 <Tooltip
+                  cursor={{ fill: "transparent" }}
                   contentStyle={{
                     backgroundColor: "rgba(17,24,39,0.9)",
                     border: "1px solid #374151",
