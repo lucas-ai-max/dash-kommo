@@ -62,7 +62,7 @@ export interface IAMetrics {
   taxa_handoff: number;
 }
 
-export type Periodo = "hoje" | "7dias" | "30dias" | "60dias" | "mes_atual" | "custom";
+export type Periodo = "todos" | "hoje" | "7dias" | "30dias" | "60dias" | "mes_atual" | "custom";
 
 export interface DateRange {
   from: Date;
