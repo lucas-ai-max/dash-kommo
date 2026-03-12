@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos } from "@/hooks/useMetrics";
+import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics } from "@/hooks/useMetrics";
 import {
   AreaChart,
   Area,
@@ -17,6 +18,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import InfoTooltip from "@/components/ui/InfoTooltip";
 
 const PANEL_BG = "#1F2937";
 
@@ -52,6 +54,7 @@ function KPICardIA({
   sparkData,
   sparkColor,
   loading,
+  tooltip,
 }: {
   label: string;
   value: string | number;
@@ -59,6 +62,7 @@ function KPICardIA({
   sparkData: number[];
   sparkColor: string;
   loading?: boolean;
+  tooltip?: string;
 }) {
   if (loading) {
     return (
@@ -72,7 +76,10 @@ function KPICardIA({
 
   return (
     <article className="rounded-xl border border-gray-700 p-5 relative overflow-hidden" style={{ backgroundColor: PANEL_BG }}>
-      <h3 className="text-gray-400 text-sm font-medium mb-2">{label}</h3>
+      <h3 className="text-gray-400 text-sm font-medium mb-2 flex items-center gap-1.5">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </h3>
       <div className="flex items-baseline gap-1 mb-4">
         <span className="text-4xl font-bold text-white">{value}</span>
         {unit && <span className="text-xl font-normal text-gray-500">{unit}</span>}
@@ -84,11 +91,19 @@ function KPICardIA({
   );
 }
 
+const TABS = [
+  { id: "ia", label: "IA" },
+  { id: "sdr", label: "SDR — Eryck" },
+] as const;
+type Tab = typeof TABS[number]["id"];
+
 export default function IAPage() {
+  const [activeTab, setActiveTab] = useState<Tab>("ia");
   const { periodo } = useDateFilter();
   const { data: iaData, isLoading } = useIAMetrics(periodo);
   const { data: responseTimes } = useIAResponseTimes();
   const { data: totalPerdidos = 0 } = useLeadsPerdidos(periodo);
+  const { data: sdr, isLoading: sdrLoading } = useSDRMetrics(periodo);
 
   const totalConversas = (iaData || []).reduce((s, d) => s + (d.total_conversas ?? 0), 0);
   const totalFinalizadas = (iaData || []).reduce((s, d) => s + (d.conversas_finalizadas ?? 0), 0);
@@ -131,12 +146,32 @@ export default function IAPage() {
   return (
     <div className="flex flex-col h-full">
       <Header
-        title="Métricas da IA - Telemetria Moderna"
-        subtitle="Performance do atendimento automatizado"
+        title="IA / SDR"
+        subtitle="Atendimento automatizado e performance do SDR"
       />
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-6 pb-12 space-y-6">
+
+        {/* Tab selector */}
+        <div className="flex gap-3">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide transition-all ${
+                activeTab === tab.id
+                  ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)] border border-white/10"
+                  : "bg-transparent text-gray-400 hover:text-white border border-white/10 hover:border-white/30"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* IA tab */}
+        {activeTab === "ia" && <>
 
         {/* No-data warning */}
         {!isLoading && !hasAnyData && (
@@ -158,6 +193,7 @@ export default function IAPage() {
             sparkData={dailyConversas.length > 0 ? dailyConversas : stubSpark}
             sparkColor="#3b82f6"
             loading={isLoading}
+            tooltip="Quantidade total de conversas iniciadas pelo bot no período."
           />
           <KPICardIA
             label="Transferidos p/ Vendedor"
@@ -165,6 +201,7 @@ export default function IAPage() {
             sparkData={dailyFinalizadas.length > 0 ? dailyFinalizadas : stubSpark}
             sparkColor="#10b981"
             loading={isLoading}
+            tooltip="Conversas finalizadas pelo bot e encaminhadas para um vendedor."
           />
           <KPICardIA
             label="Tempo Médio Resposta"
@@ -173,6 +210,7 @@ export default function IAPage() {
             sparkData={stubSpark}
             sparkColor="#3b82f6"
             loading={isLoading}
+            tooltip="Tempo médio que o bot leva para responder, em segundos."
           />
           <KPICardIA
             label="Taxa de Conversão IA"
@@ -181,6 +219,7 @@ export default function IAPage() {
             sparkData={dailyFinalizadas.length > 0 ? dailyFinalizadas : stubSpark}
             sparkColor="#10b981"
             loading={isLoading}
+            tooltip="Conversas transferidas ÷ total de conversas × 100."
           />
         </section>
 
@@ -283,6 +322,151 @@ export default function IAPage() {
             </ResponsiveContainer>
           </div>
         </section>
+        </>}
+
+        {/* SDR tab */}
+        {activeTab === "sdr" && <div className="space-y-6">
+
+          {/* KPI cards */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICardIA
+              label="Total Leads"
+              value={sdr?.total_leads ?? 0}
+              sparkData={stubSpark}
+              sparkColor="#a855f7"
+              loading={sdrLoading}
+              tooltip="Total de leads recebidos pelo SDR Eryck no período selecionado."
+            />
+            <KPICardIA
+              label="Leads Ativos"
+              value={sdr?.leads_ativos ?? 0}
+              sparkData={stubSpark}
+              sparkColor="#3b82f6"
+              loading={sdrLoading}
+              tooltip="Leads ainda em tratamento no pipeline do Eryck."
+            />
+            <KPICardIA
+              label="Encerrados"
+              value={sdr?.leads_encerrados ?? 0}
+              sparkData={stubSpark}
+              sparkColor="#ef4444"
+              loading={sdrLoading}
+              tooltip="Leads encerrados (não qualificados ou fechados)."
+            />
+            <KPICardIA
+              label="Taxa Encerramento"
+              value={sdr?.taxa_encerramento ?? 0}
+              unit="%"
+              sparkData={stubSpark}
+              sparkColor="#f59e0b"
+              loading={sdrLoading}
+              tooltip="% de leads encerrados sobre o total recebido."
+            />
+          </section>
+
+          {/* Stage funnel + ciclo info */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Funil por etapa */}
+            <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
+              <h3 className="text-sm font-semibold text-white mb-4">Funil — Rastro por Etapa</h3>
+              {sdrLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => <div key={i} className="h-8 rounded animate-pulse bg-gray-700" />)}
+                </div>
+              ) : (sdr?.por_etapa || []).length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">Sem leads ativos no período</p>
+              ) : (
+                <div className="space-y-3">
+                  {(sdr?.por_etapa || []).map((s) => (
+                    <div key={s.stage}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-300 capitalize">{s.stage}</span>
+                        <span className="text-gray-400 font-mono">{s.count} <span className="text-gray-600">({s.pct}%)</span></span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(s.pct, 2)}%`,
+                            background: "linear-gradient(90deg, #a855f7, #7c3aed)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Info cards */}
+            <div className="space-y-4">
+              {/* Ciclo médio */}
+              <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Ciclo Médio de Encerramento</p>
+                {sdrLoading ? (
+                  <div className="h-10 w-32 rounded animate-pulse bg-gray-700" />
+                ) : (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-white">
+                      {sdr?.ciclo_medio_h != null
+                        ? sdr.ciclo_medio_h < 24
+                          ? sdr.ciclo_medio_h.toFixed(1)
+                          : (sdr.ciclo_medio_h / 24).toFixed(1)
+                        : "—"}
+                    </span>
+                    <span className="text-xl text-gray-500">
+                      {sdr?.ciclo_medio_h != null ? (sdr.ciclo_medio_h < 24 ? "h" : "d") : ""}
+                    </span>
+                    <span className="text-xs text-gray-600 ml-2">tempo médio até encerramento</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Insight tempo de resposta (resultado da análise) */}
+              <div className="rounded-xl border border-purple-500/20 p-5" style={{ backgroundColor: "rgba(139,92,246,0.06)" }}>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Tempo de Resposta</p>
+                  <InfoTooltip text="Tempo entre a criação do lead e o primeiro contato do Eryck. Baseado em amostra de 150 leads dos últimos 60 dias." />
+                </div>
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-gray-300">Tempo mediano</span>
+                      <p className="text-[11px] text-gray-500">Metade dos leads são respondidos antes desse tempo</p>
+                    </div>
+                    <span className="text-white font-mono font-bold text-base ml-4 shrink-0">1.6h</span>
+                  </div>
+                  <div className="h-px bg-white/5" />
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-gray-300">Respondidos em &lt; 5 min</span>
+                      <p className="text-[11px] text-gray-500">Atendimento imediato — excelente</p>
+                    </div>
+                    <span className="text-green-400 font-mono font-bold text-base ml-4 shrink-0">40.7%</span>
+                  </div>
+                  <div className="h-px bg-white/5" />
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-gray-300">Demora acima de 24h</span>
+                      <p className="text-[11px] text-gray-500">Leads com alto risco de esfriamento</p>
+                    </div>
+                    <span className="text-red-400 font-mono font-bold text-base ml-4 shrink-0">15.3%</span>
+                  </div>
+                  <div className="h-px bg-white/5" />
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-gray-300">P90 (percentil 90)</span>
+                      <p className="text-[11px] text-gray-500">90% dos leads são respondidos até esse prazo</p>
+                    </div>
+                    <span className="text-yellow-400 font-mono font-bold text-base ml-4 shrink-0">1.2 dias</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-3">Amostra: 150 leads · últimos 60 dias</p>
+              </div>
+            </div>
+          </div>
+        </div>}
       </div>
 
       {/* Fixed status bar at bottom */}

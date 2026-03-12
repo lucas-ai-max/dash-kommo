@@ -2,8 +2,9 @@
 
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useCanalMetrics } from "@/hooks/useMetrics";
+import { useCanalMetrics, useLeadsNegociacoesQuentes } from "@/hooks/useMetrics";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import InfoTooltip from "@/components/ui/InfoTooltip";
 
 // ─── Channel config ──────────────────────────────────────────────────────────
 const CHANNEL_CONFIG: Record<string, {
@@ -64,6 +65,7 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
 export default function CanaisPage() {
   const { periodo } = useDateFilter();
   const { data: canais, isLoading } = useCanalMetrics(periodo);
+  const { data: negQuentes } = useLeadsNegociacoesQuentes();
   const currentData = (canais || []).sort((a, b) => b.total_leads - a.total_leads);
 
   const totalLeads = currentData.reduce((s, c) => s + c.total_leads, 0);
@@ -99,7 +101,6 @@ export default function CanaisPage() {
       <Header
         title="Performance de Canais Moderna"
         subtitle="Análise de aquisição e eficiência por origem de leads"
-        showDateFilter={false}
       />
 
       {/* 3-col layout: cards (2/3) + sidebar (1/3) */}
@@ -133,7 +134,10 @@ export default function CanaisPage() {
 
                   {/* Volume */}
                   <div className="text-center mb-2">
-                    <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Volume</p>
+                    <p className="text-gray-500 text-xs uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
+                      Volume
+                      <InfoTooltip text="Quantidade total de leads originados por este canal." />
+                    </p>
                     <p className="text-xl font-bold text-white">{c.total_leads.toLocaleString("pt-BR")} Leads</p>
                   </div>
 
@@ -144,8 +148,9 @@ export default function CanaisPage() {
 
                   {/* Lost leads */}
                   <div className="mt-4 pt-3 border-t border-gray-700 text-center">
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-gray-500 text-xs flex items-center justify-center gap-1">
                       {(c.leads_lost || 0).toLocaleString("pt-BR")} Leads Perdidos
+                      <InfoTooltip text="Quantidade de leads perdidos originados por este canal." />
                     </p>
                   </div>
                 </article>
@@ -265,7 +270,94 @@ export default function CanaisPage() {
             </div>
           </aside>
         </div>
-      </div>
+
+        {/* ── Análise de Origem — tabela comparativa ── */}
+        <section className="mt-6 rounded-xl border border-white/5 overflow-hidden" style={{ backgroundColor: CARD_BG }}>
+          <div className="px-5 py-4 border-b border-white/5 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-white">Análise de Origem</h3>
+            <InfoTooltip text="Comparativo de conversão, ciclo médio e volume por canal de aquisição. Canais com canal_venda preenchido no Kommo aparecem aqui." />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.02]">
+                  <th className="px-5 py-3">Canal</th>
+                  <th className="px-5 py-3 text-right">Total Leads</th>
+                  <th className="px-5 py-3 text-right">Vendas</th>
+                  <th className="px-5 py-3 text-right">Conversão</th>
+                  <th className="px-5 py-3 text-right">Ciclo Médio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentData.map((c, i) => {
+                  const cfg = CHANNEL_CONFIG[c.canal_venda] || DEFAULT_CFG;
+                  const isBot = c.canal_venda?.toLowerCase().includes("bot");
+                  return (
+                    <tr
+                      key={c.canal_venda}
+                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      style={isBot ? { backgroundColor: "rgba(139,92,246,0.05)", borderLeft: "3px solid #8b5cf6" } : {}}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{cfg.icon}</span>
+                          <span className="font-medium text-gray-200">{c.canal_venda}</span>
+                          {isBot && <span className="text-[9px] uppercase tracking-widest text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded-full">Bot</span>}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-gray-300">{c.total_leads.toLocaleString("pt-BR")}</td>
+                      <td className="px-5 py-3 text-right font-mono text-green-400">{c.leads_won.toLocaleString("pt-BR")}</td>
+                      <td className="px-5 py-3 text-right">
+                        <span
+                          className="font-mono font-bold"
+                          style={{
+                            color: (c.taxa_conversao || 0) >= 20 ? "#10b981"
+                              : (c.taxa_conversao || 0) >= 10 ? "#f59e0b"
+                              : "#ef4444",
+                          }}
+                        >
+                          {c.taxa_conversao != null ? `${c.taxa_conversao}%` : "—"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-gray-400">
+                        {c.ciclo_medio_dias != null ? `${c.ciclo_medio_dias}d` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Linha extra: Leads em Potencial (NEGOCIAÇÕES QUENTES) */}
+                {negQuentes && (
+                  <tr className="border-t-2 border-amber-500/20 bg-amber-500/5">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🔥</span>
+                        <span className="font-medium text-amber-300">Leads em Potencial</span>
+                        <InfoTooltip text="Leads na etapa NEGOCIAÇÕES QUENTES do pipeline Vendedores. Conversão calculada sobre os que já foram fechados (ganho ou perdido)." />
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono text-gray-300">{negQuentes.total.toLocaleString("pt-BR")}</td>
+                    <td className="px-5 py-3 text-right font-mono text-green-400">{negQuentes.won.toLocaleString("pt-BR")}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span
+                        className="font-mono font-bold"
+                        style={{
+                          color: (negQuentes.taxa_conversao || 0) >= 20 ? "#10b981"
+                            : (negQuentes.taxa_conversao || 0) >= 10 ? "#f59e0b"
+                            : "#ef4444",
+                        }}
+                      >
+                        {negQuentes.taxa_conversao != null ? `${negQuentes.taxa_conversao}%` : "—"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono text-gray-400">—</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>  {/* end p-6 */}
 
       {/* CSS for SVG circular progress animation */}
       <style>{`

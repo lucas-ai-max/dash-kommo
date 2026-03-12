@@ -14,6 +14,9 @@ import {
   fetchLeadsPerdidos,
   fetchPipelineFunil,
   fetchLastSync,
+  fetchSDRMetrics,
+  fetchLeadsHumanoSemProposta,
+  fetchLeadsNegociacoesQuentes,
 } from "@/lib/queries";
 import type { Periodo } from "@/types/metrics";
 
@@ -101,6 +104,26 @@ export function usePipelineFunil(periodo: Periodo = "mes_atual") {
     () => fetchPipelineFunil(undefined, periodo),
     { refreshInterval: REFRESH_INTERVAL }
   );
+}
+
+export function useSDRMetrics(periodo: Periodo) {
+  return useSWR(
+    ["sdr-metrics", periodo],
+    () => fetchSDRMetrics(periodo),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
+}
+
+export function useLeadsHumanoSemProposta() {
+  return useSWR("leads-humano-sem-proposta", fetchLeadsHumanoSemProposta, {
+    refreshInterval: REFRESH_INTERVAL,
+  });
+}
+
+export function useLeadsNegociacoesQuentes() {
+  return useSWR("leads-negociacoes-quentes", fetchLeadsNegociacoesQuentes, {
+    refreshInterval: REFRESH_INTERVAL,
+  });
 }
 
 export function useLastSync() {

@@ -33,7 +33,9 @@ async function fetchAllRows<T>(queryBuilder: any): Promise<T[]> {
   return allData;
 }
 
-function getDateRange(periodo: Periodo): { from: string; to: string } {
+function getDateRange(periodo: Periodo): { from: string; to: string } | null {
+  if (periodo === "todos") return null;
+
   const now = new Date();
   const to = format(now, "yyyy-MM-dd") + "T23:59:59";
 
@@ -58,42 +60,67 @@ function getDateRange(periodo: Periodo): { from: string; to: string } {
         to,
       };
     default:
-      return {
-        from: format(subDays(now, 30), "yyyy-MM-dd") + "T00:00:00",
-        to,
-      };
+      return null;
   }
 }
 
 export async function fetchOverviewMetrics(
   periodo: Periodo
 ): Promise<DashboardMetrics | null> {
-  // Busca TODOS os leads de TODOS os pipelines (sem filtro de data)
-  // para calcular o total real e a taxa de conversão histórica
-  const query = supabase
+  const range = getDateRange(periodo);
+
+  // Volume: leads CRIADOS no período — ambos os pipelines, sem perdidos
+  let volumeQuery = supabase
     .from("dashboard_leads")
-    .select("is_won, is_lost, is_active, price");
+    .select("is_won, is_lost, is_active, price, ciclo_dias, created_at, closed_at")
+    .in("pipeline_id", [9968344, 13215396])
+    .eq("is_lost", false);
 
-  const leads = await fetchAllRows<any>(query);
-  if (!leads || leads.length === 0) return null;
+  if (range) {
+    volumeQuery = volumeQuery.gte("created_at", range.from).lte("created_at", range.to);
+  }
 
-  const won = leads.filter((l) => l.is_won);
-  const lost = leads.filter((l) => l.is_lost);
-  const active = leads.filter((l) => l.is_active);
+  const leads = await fetchAllRows<any>(volumeQuery);
+
+  // Resultados: leads FECHADOS no período (won/lost com closed_at no range)
+  let closedLeads: any[] = [];
+  if (range) {
+    let closedQuery = supabase
+      .from("dashboard_leads")
+      .select("is_won, is_lost, price, ciclo_dias, closed_at")
+      .in("pipeline_id", [9968344, 13215396])
+      .not("closed_at", "is", null)
+      .gte("closed_at", range.from)
+      .lte("closed_at", range.to);
+    closedLeads = await fetchAllRows<any>(closedQuery);
+  } else {
+    // "todos" — won/lost vêm dos próprios leads
+    closedLeads = (leads || []).filter((l: any) => l.is_won || l.is_lost);
+  }
+
+  const totalLeads = leads?.length || 0;
+  if (totalLeads === 0 && closedLeads.length === 0) return null;
+
+  const won = closedLeads.filter((l: any) => l.is_won);
+  const lost = closedLeads.filter((l: any) => l.is_lost);
+  const active = (leads || []).filter((l: any) => l.is_active);
+  const ciclos = [...won, ...lost].filter((l: any) => l.ciclo_dias != null).map((l: any) => l.ciclo_dias as number);
 
   return {
     metric_date: format(new Date(), "yyyy-MM-dd"),
     periodo: periodo,
-    total_leads: leads.length,
+    total_leads: totalLeads,
     leads_won: won.length,
     leads_lost: lost.length,
     leads_active: active.length,
-    // Conversão = vendas realizadas (FECHADO-GANHO) / total de leads (todos os pipelines)
     taxa_conversao_geral:
-      leads.length > 0
-        ? Number(((won.length / leads.length) * 100).toFixed(2))
+      totalLeads > 0
+        ? Number(((won.length / totalLeads) * 100).toFixed(2))
         : null,
-    ciclo_medio_dias: null,
+    ciclo_medio_dias:
+      ciclos.length > 0
+        ? Number((ciclos.reduce((a, b) => a + b, 0) / ciclos.length).toFixed(1))
+        : null,
     ticket_medio:
       won.length > 0
         ? Number((won.reduce((a: number, l: any) => a + (l.price || 0), 0) / won.length).toFixed(2))
@@ -128,19 +155,47 @@ interface CanalRow {
 export async function fetchCanalMetrics(
   periodo: Periodo
 ): Promise<DashboardMetricsCanal[]> {
-  const { from, to } = getDateRange(periodo);
+  const range = getDateRange(periodo);
+  const selectFields = "canal_venda, is_won, is_lost, price, ciclo_dias, qtd_followups, created_at, closed_at";
 
-  const query = supabase
+  // Volume: leads CRIADOS no período
+  let query = supabase
     .from("dashboard_leads")
-    .select("canal_venda, is_won, is_lost, price, ciclo_dias, qtd_followups")
-    .gte("created_at", from)
-    .lte("created_at", to);
+    .select(selectFields);
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
 
   const leads = await fetchAllRows<any>(query);
-  if (!leads) return [];
+
+  // Resultados: leads FECHADOS no período
+  let closedLeads: any[] = [];
+  if (range) {
+    let closedQuery = supabase
+      .from("dashboard_leads")
+      .select(selectFields)
+      .not("closed_at", "is", null)
+      .gte("closed_at", range.from)
+      .lte("closed_at", range.to);
+    closedLeads = await fetchAllRows<any>(closedQuery);
+  }
+
+  // Merge sem duplicatas
+  const seen = new Set<string>();
+  const allLeads: any[] = [];
+  for (const l of [...(leads || []), ...closedLeads]) {
+    const key = `${l.canal_venda}-${l.created_at}-${l.price}-${l.is_won}-${l.is_lost}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      allLeads.push(l);
+    }
+  }
+
+  if (allLeads.length === 0) return [];
 
   const byCanal = new Map<string, CanalRow[]>();
-  for (const lead of leads) {
+  for (const lead of allLeads) {
     const canal = lead.canal_venda || "Sem canal";
     if (!byCanal.has(canal)) byCanal.set(canal, []);
     byCanal.get(canal)!.push({ ...lead, canal_venda: canal });
@@ -150,7 +205,7 @@ export async function fetchCanalMetrics(
     const won = cLeads.filter((l) => l.is_won);
     const lost = cLeads.filter((l) => l.is_lost);
     const totalDecided = won.length + lost.length;
-    const ciclos = won.filter((l) => l.ciclo_dias != null).map((l) => l.ciclo_dias!);
+    const ciclos = [...won, ...lost].filter((l) => l.ciclo_dias != null).map((l) => l.ciclo_dias!);
 
     return {
       metric_date: format(new Date(), "yyyy-MM-dd"),
@@ -195,19 +250,58 @@ interface VendedorRow {
 export async function fetchVendedorMetrics(
   periodo: Periodo
 ): Promise<DashboardMetricsVendedor[]> {
-  const { from, to } = getDateRange(periodo);
+  const range = getDateRange(periodo);
+  const selectFields = "responsible_user_id, responsible_user_name, is_won, is_lost, price, ciclo_dias, qtd_followups, tempo_primeiro_atendimento_min, created_at, closed_at";
 
-  // Fetch ALL leads in the Vendedores pipeline (no date restriction)
-  const allQuery = supabase
+  // Volume: leads CRIADOS no período
+  let allQuery = supabase
     .from("dashboard_leads")
-    .select("responsible_user_id, responsible_user_name, is_won, is_lost, price, ciclo_dias, qtd_followups, tempo_primeiro_atendimento_min, created_at, closed_at")
+    .select(selectFields)
     .eq("pipeline_id", 9968344);
 
+  if (range) {
+    allQuery = allQuery.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
   const leads = await fetchAllRows<any>(allQuery);
-  if (!leads) return [];
+
+  // Resultados: leads FECHADOS no período (para capturar vendas de leads antigos)
+  let closedLeads: any[] = [];
+  if (range) {
+    let closedQuery = supabase
+      .from("dashboard_leads")
+      .select(selectFields)
+      .eq("pipeline_id", 9968344)
+      .not("closed_at", "is", null)
+      .gte("closed_at", range.from)
+      .lte("closed_at", range.to);
+    closedLeads = await fetchAllRows<any>(closedQuery);
+  }
+
+  // Merge: leads criados no período + leads fechados no período (sem duplicatas)
+  const seenIds = new Set<string>();
+  const allLeads: any[] = [];
+  for (const l of [...(leads || []), ...closedLeads]) {
+    const key = `${l.responsible_user_id}-${l.created_at}-${l.price}`;
+    if (!seenIds.has(key)) {
+      seenIds.add(key);
+      allLeads.push(l);
+    }
+  }
+
+  if (allLeads.length === 0) return [];
+
+  // Busca metas do mês atual
+  const mesReferencia = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const { data: metas } = await supabase
+    .from("dashboard_metas")
+    .select("responsible_user_id, meta_receita")
+    .eq("mes_referencia", mesReferencia);
+  const metasMap = new Map<number, { meta_receita: number }>();
+  (metas || []).forEach((m: any) => metasMap.set(m.responsible_user_id, { meta_receita: m.meta_receita }));
 
   const byVendedor = new Map<number, VendedorRow[]>();
-  for (const lead of leads) {
+  for (const lead of allLeads) {
     if (!lead.responsible_user_id) continue;
     if (!byVendedor.has(lead.responsible_user_id))
       byVendedor.set(lead.responsible_user_id, []);
@@ -218,7 +312,7 @@ export async function fetchVendedorMetrics(
     const wonTotal = vLeads.filter((l) => l.is_won);
     const lostTotal = vLeads.filter((l) => l.is_lost);
     const receita = wonTotal.reduce((a, l) => a + (l.price || 0), 0);
-    const ciclos = wonTotal.filter((l) => l.ciclo_dias != null).map((l) => l.ciclo_dias!);
+    const ciclos = [...wonTotal, ...lostTotal].filter((l) => l.ciclo_dias != null).map((l) => l.ciclo_dias!);
 
     // Taxa de conversão por VALOR: receita das vendas ganhas / valor total de todos os leads do vendedor
     // Se não houver valor monetário, usa contagem: vendas / (total leads + vendas)
@@ -230,10 +324,7 @@ export async function fetchVendedorMetrics(
         ? Number(((wonTotal.length / totalPool) * 100).toFixed(2))
         : null;
 
-    const leadsNoPeriodo = vLeads.filter((l) =>
-      l.created_at && l.created_at >= from && l.created_at <= to
-    );
-    const tempos = leadsNoPeriodo.filter((l) => l.tempo_primeiro_atendimento_min != null).map((l) => l.tempo_primeiro_atendimento_min!);
+    const tempos = vLeads.filter((l) => l.tempo_primeiro_atendimento_min != null).map((l) => l.tempo_primeiro_atendimento_min!);
 
     return {
       metric_date: format(new Date(), "yyyy-MM-dd"),
@@ -254,15 +345,19 @@ export async function fetchVendedorMetrics(
           : null,
       receita_total: receita,
       followups_medio:
-        leadsNoPeriodo.length > 0
-          ? Number((leadsNoPeriodo.reduce((a, l) => a + (l.qtd_followups || 0), 0) / leadsNoPeriodo.length).toFixed(1))
+        vLeads.length > 0
+          ? Number((vLeads.reduce((a, l) => a + (l.qtd_followups || 0), 0) / vLeads.length).toFixed(1))
           : null,
       tempo_medio_primeiro_atendimento_min:
         tempos.length > 0
           ? Number((tempos.reduce((a, b) => a + b, 0) / tempos.length).toFixed(1))
           : null,
-      meta_mensal: 0,
-      percentual_meta: 0,
+      meta_mensal: metasMap.get(userId)?.meta_receita ?? 0,
+      percentual_meta: (() => {
+        const metaReceita = metasMap.get(userId)?.meta_receita ?? 0;
+        if (!metaReceita) return 0;
+        return Number(((receita / metaReceita) * 100).toFixed(2));
+      })(),
     };
   }).filter((v) => v.total_leads > 0 || v.leads_won > 0 || v.leads_lost > 0);
 }
@@ -281,19 +376,32 @@ export const PIPELINE_STAGES: Record<number, string[]> = {
     "DESCOBERTA",
     "MOSTRAR MODELOS",
     "FORMA DE PAGAMENTO",
-    "TRANSFERÊNCIA",
+    "TRANSFERENCIA",
+    "TRATAMENTO",
     "PROPOSTA",
-    "OBJEÇÕES",
+    "OBJEÇOES",
     "FECHAMENTO"
+  ],
+  11480160: [
+    "Ligar",
+    "nao atendeu",
+    "mensagem",
+    "ultima chamada",
+    "resgate",
   ]
 };
 
+// Última etapa que participa do somatório cumulativo (inclusive).
+// Etapas APÓS esta mostram valor exato.
+const CUMULATIVE_UNTIL: Record<number, string> = {
+  13215396: "FECHAMENTO",
+};
+
 export async function fetchFunilData(
-  periodo: Periodo = "mes_atual",
+  _periodo: Periodo = "todos",
   pipelineId?: number
 ): Promise<DashboardFunil[]> {
-  const { from, to } = getDateRange(periodo);
-
+  // Funil mostra o estado ATUAL da pipeline — ignora filtro de data
   let query = supabase
     .from("dashboard_leads")
     .select("pipeline_id, pipeline_name, status_id, status_name, is_active");
@@ -362,7 +470,7 @@ export async function fetchFunilData(
 
   const result = Array.from(stageMap.values()).map((s) => ({
     metric_date: format(new Date(), "yyyy-MM-dd"),
-    periodo: periodo,
+    periodo: _periodo,
     pipeline_id: s.pipeline_id,
     pipeline_name: s.pipeline_name,
     status_id: s.status_id,
@@ -374,33 +482,24 @@ export async function fetchFunilData(
     taxa_passagem: null as number | null,
   }));
 
-  if (pipelineId === 9968344) {
-    const total = result.reduce((a, b) => a + b.leads_atual, 0);
+  // Lógica cumulativa parcial: soma apenas até a etapa limite (CUMULATIVE_UNTIL)
+  if (pipelineId && PIPELINE_STAGES[pipelineId] && CUMULATIVE_UNTIL[pipelineId]) {
+    const orderDefs = PIPELINE_STAGES[pipelineId].map(s => s.toUpperCase());
+    const limitIdx = orderDefs.indexOf(CUMULATIVE_UNTIL[pipelineId].toUpperCase());
     const exact = new Map<string, number>();
     result.forEach(r => exact.set((r.status_name || "").toUpperCase(), r.leads_atual));
 
     result.forEach(r => {
       const name = (r.status_name || "").toUpperCase();
-      const cInici = exact.get("CONTATO INICIAL") || 0;
-      const eAtend = exact.get("EM ATENDIMENTO") || 0;
-      const nQuent = exact.get("NEGOCIAÇÕES QUENTES") || 0;
-      const reaq = exact.get("[★] REAQUECER") || 0;
+      const idx = orderDefs.indexOf(name);
+      if (idx === -1 || idx > limitIdx) return; // após limite = valor exato
 
-      if (name === "CONTATO INICIAL") {
-        r.leads_atual = total;
-      } else if (name === "EM ATENDIMENTO") {
-        r.leads_atual = total - cInici;
-      } else if (name === "NEGOCIAÇÕES QUENTES") {
-        r.leads_atual = total - cInici - eAtend;
-      } else if (name === "[★] REAQUECER") {
-        r.leads_atual = reaq;
-      } else if (name === "ACOMPANHAMENTO") {
-        r.leads_atual = total - cInici - eAtend - nQuent - reaq;
+      let cumulative = 0;
+      for (let i = idx; i < orderDefs.length; i++) {
+        cumulative += exact.get(orderDefs[i]) || 0;
       }
+      r.leads_atual = cumulative;
     });
-
-    // Re-calculate taxa_passagem baseada na ordem cumulativa após o ajuste:
-    // This part ensures the UI still shows correct conversion percentages if needed.
   }
 
   if (pipelineId && PIPELINE_STAGES[pipelineId]) {
@@ -423,11 +522,17 @@ export async function fetchFunilData(
 export async function fetchPerdasData(
   periodo: Periodo
 ): Promise<DashboardPerdas[]> {
-  // Busca todos os leads perdidos de todos os pipelines (sem filtro de data)
-  const query = supabase
+  const range = getDateRange(periodo);
+
+  let query = supabase
     .from("dashboard_leads")
     .select("motivo_perda, canal_venda, responsible_user_name, pipeline_name")
     .eq("is_lost", true);
+
+  if (range) {
+    // Perdas: filtrar por closed_at (quando foi perdido), não created_at
+    query = query.gte("closed_at", range.from).lte("closed_at", range.to);
+  }
 
   const leads = await fetchAllRows<any>(query);
   if (!leads || leads.length === 0) return [];
@@ -458,17 +563,21 @@ export async function fetchPerdasData(
 }
 
 export async function fetchIAMetrics(
-  periodo: Periodo = "mes_atual"
+  periodo: Periodo = "todos"
 ): Promise<DashboardMetricasIA[]> {
-  const { from, to } = getDateRange(periodo);
-  const dateFrom = from.slice(0, 10);
-  const dateTo = to.slice(0, 10);
+  const range = getDateRange(periodo);
 
-  const { data } = await supabase
+  let query = supabase
     .from("dashboard_metricas_ia")
-    .select("*")
-    .gte("metric_date", dateFrom)
-    .lte("metric_date", dateTo)
+    .select("*");
+
+  if (range) {
+    query = query
+      .gte("metric_date", range.from.slice(0, 10))
+      .lte("metric_date", range.to.slice(0, 10));
+  }
+
+  const { data } = await query
     .order("metric_date", { ascending: false })
     .limit(90);
   return data || [];
@@ -504,13 +613,17 @@ export async function fetchRespostaPorConversa(): Promise<DashboardRespostaPorCo
   return data || [];
 }
 
-export async function fetchLeadsPerdidos(periodo: Periodo = "mes_atual"): Promise<number> {
-  const { from, to } = getDateRange(periodo);
-  const { count } = await supabase
+export async function fetchLeadsPerdidos(periodo: Periodo = "todos"): Promise<number> {
+  const range = getDateRange(periodo);
+  let query = supabase
     .from("chats")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", from)
-    .lte("created_at", to)
+    .select("*", { count: "exact", head: true });
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const { count } = await query
     .eq("status_fup", true)
     .eq("fup_nivel_1", true)
     .eq("fup_nivel_2", true)
@@ -632,35 +745,152 @@ export async function fetchPipelineFunil(
     taxa_passagem: null as number | null,
   }));
 
-  // Aplica lógica cumulativa para pipeline Vendedores (9968344)
-  if (bestPipelineId === 9968344) {
-    const total = result.reduce((a, b) => a + b.leads_atual, 0);
+  // Lógica cumulativa parcial
+  if (PIPELINE_STAGES[bestPipelineId] && CUMULATIVE_UNTIL[bestPipelineId]) {
+    const orderDefs = PIPELINE_STAGES[bestPipelineId].map(s => s.toUpperCase());
+    const limitIdx = orderDefs.indexOf(CUMULATIVE_UNTIL[bestPipelineId].toUpperCase());
     const exact = new Map<string, number>();
     result.forEach(r => exact.set((r.status_name || "").toUpperCase(), r.leads_atual));
 
     result.forEach(r => {
       const name = (r.status_name || "").toUpperCase();
-      const cInici = exact.get("CONTATO INICIAL") || 0;
-      const eAtend = exact.get("EM ATENDIMENTO") || 0;
-      const nQuent = exact.get("NEGOCIAÇÕES QUENTES") || 0;
-      const reaq = exact.get("[★] REAQUECER") || 0;
+      const idx = orderDefs.indexOf(name);
+      if (idx === -1 || idx > limitIdx) return;
 
-      if (name === "CONTATO INICIAL") {
-        r.leads_atual = total;
-      } else if (name === "EM ATENDIMENTO") {
-        r.leads_atual = total - cInici;
-      } else if (name === "NEGOCIAÇÕES QUENTES") {
-        r.leads_atual = total - cInici - eAtend;
-      } else if (name === "[★] REAQUECER") {
-        r.leads_atual = reaq;
-      } else if (name === "ACOMPANHAMENTO") {
-        r.leads_atual = total - cInici - eAtend - nQuent - reaq;
+      let cumulative = 0;
+      for (let i = idx; i < orderDefs.length; i++) {
+        cumulative += exact.get(orderDefs[i]) || 0;
       }
-      // FECHADO-GANHO e FECHADO-PERDIDO mantêm o valor exato
+      r.leads_atual = cumulative;
     });
   }
 
   return result;
+}
+
+export interface SDRMetrics {
+  total_leads: number;
+  leads_ativos: number;
+  leads_encerrados: number;
+  taxa_encerramento: number;
+  por_etapa: { stage: string; count: number; pct: number }[];
+  ciclo_medio_h: number | null;
+}
+
+export async function fetchSDRMetrics(periodo: Periodo): Promise<SDRMetrics> {
+  const range = getDateRange(periodo);
+
+  // KPIs de volume: leads RECEBIDOS no período (com filtro de data)
+  let periodQuery = supabase
+    .from("dashboard_leads")
+    .select("is_lost, is_won, ciclo_dias")
+    .eq("pipeline_id", 11480160);
+
+  if (range) {
+    periodQuery = periodQuery.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const periodLeads = await fetchAllRows<any>(periodQuery);
+  const total = periodLeads.length;
+  const encerrados = periodLeads.filter((l: any) => l.is_lost || l.is_won).length;
+  const taxaEncerramento = total > 0 ? Number(((encerrados / total) * 100).toFixed(1)) : 0;
+
+  const ciclos = periodLeads
+    .filter((l: any) => (l.is_lost || l.is_won) && l.ciclo_dias != null)
+    .map((l: any) => l.ciclo_dias as number);
+  const cicloMedioH = ciclos.length > 0
+    ? Number(((ciclos.reduce((a: number, b: number) => a + b, 0) / ciclos.length) * 24).toFixed(1))
+    : null;
+
+  // Estado ATUAL do pipeline: sem filtro de data
+  // Leads ativos hoje independentemente de quando foram criados
+  const allLeads = await fetchAllRows<any>(
+    supabase
+      .from("dashboard_leads")
+      .select("status_name, is_active, is_lost, is_won")
+      .eq("pipeline_id", 11480160)
+  );
+
+  const ativos = allLeads.filter((l: any) => l.is_active).length;
+
+  // Distribuição por etapa — contagem exata de leads ativos por etapa (igual ao Kommo)
+  const STAGE_ORDER = ["Ligar", "nao atendeu", "mensagem", "ultima chamada", "resgate"];
+  const stageCount: Record<string, number> = {};
+  allLeads.filter((l: any) => l.is_active).forEach((l: any) => {
+    const name = l.status_name || "—";
+    stageCount[name] = (stageCount[name] || 0) + 1;
+  });
+
+  const maxActive = Math.max(...STAGE_ORDER.map((s) => stageCount[s] || 0), 1);
+  const porEtapa = STAGE_ORDER.map((stage) => ({
+    stage,
+    count: stageCount[stage] || 0,
+    pct: Number((((stageCount[stage] || 0) / maxActive) * 100).toFixed(1)),
+  }));
+
+  return { total_leads: total, leads_ativos: ativos, leads_encerrados: encerrados, taxa_encerramento: taxaEncerramento, por_etapa: porEtapa, ciclo_medio_h: cicloMedioH };
+}
+
+export interface LeadsHumanoSemPropostaResult {
+  semProposta: number;
+  totalAtivos: number;
+  leads: { name: string; stage: string; responsavel: string }[];
+}
+
+export async function fetchLeadsHumanoSemProposta(): Promise<LeadsHumanoSemPropostaResult> {
+  const allAtivos = await fetchAllRows<any>(
+    supabase
+      .from("dashboard_leads")
+      .select("lead_name, status_name, responsible_user_name")
+      .eq("pipeline_id", 13215396)
+      .eq("is_active", true)
+  );
+
+  const PROPOSTA_STAGES = ["PROPOSTA", "OBJEÇOES", "FECHAMENTO", "OBJEÇÕES"];
+  const semProposta = allAtivos.filter(
+    (l) => !PROPOSTA_STAGES.includes((l.status_name || "").toUpperCase())
+  );
+
+  return {
+    semProposta: semProposta.length,
+    totalAtivos: allAtivos.length,
+    leads: semProposta.map((l) => ({
+      name: l.lead_name || "—",
+      stage: l.status_name || "—",
+      responsavel: l.responsible_user_name || "—",
+    })),
+  };
+}
+
+export interface LeadsNegociacoesQuentes {
+  total: number;
+  won: number;
+  lost: number;
+  ativos: number;
+  taxa_conversao: number | null;
+}
+
+export async function fetchLeadsNegociacoesQuentes(): Promise<LeadsNegociacoesQuentes> {
+  const leads = await fetchAllRows<any>(
+    supabase
+      .from("dashboard_leads")
+      .select("is_won, is_lost, is_active")
+      .eq("pipeline_id", 9968344)
+      .ilike("status_name", "NEGOCIAÇÕES QUENTES")
+  );
+
+  const won = leads.filter((l) => l.is_won).length;
+  const lost = leads.filter((l) => l.is_lost).length;
+  const ativos = leads.filter((l) => l.is_active).length;
+  const decided = won + lost;
+
+  return {
+    total: leads.length,
+    won,
+    lost,
+    ativos,
+    taxa_conversao: decided > 0 ? Number(((won / decided) * 100).toFixed(1)) : null,
+  };
 }
 
 export async function fetchLastSync(): Promise<DashboardSyncLog | null> {

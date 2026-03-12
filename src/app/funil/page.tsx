@@ -1,8 +1,10 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import { useFunilData } from "@/hooks/useMetrics";
 import { useState } from "react";
+import Header from "@/components/layout/Header";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import { useFunilData, useLeadsHumanoSemProposta } from "@/hooks/useMetrics";
+import { useDateFilter } from "@/hooks/useDateFilter";
 
 const PIPELINES = [
   { id: 9968344, name: "Vendedores" },
@@ -48,9 +50,12 @@ function stageColor(name: string) {
 
 export default function FunilPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<number>(PIPELINES[0].id);
-  const { data: funil, isLoading } = useFunilData("mes_atual", selectedPipelineId);
+  const [semPropostaExpanded, setSemPropostaExpanded] = useState(false);
+  const { periodo } = useDateFilter();
+  const { data: funil, isLoading } = useFunilData(periodo, selectedPipelineId);
+  const { data: humanoSemProposta, isLoading: loadingHumano } = useLeadsHumanoSemProposta();
 
-  const stages = (funil || []).sort((a, b) => b.leads_atual - a.leads_atual);
+  const stages = funil || [];
   const maxLeads = stages[0]?.leads_atual || 1;
 
   return (
@@ -58,7 +63,6 @@ export default function FunilPage() {
       <Header
         title="Funil de Conversão"
         subtitle="Análise de pipeline em tempo real"
-        showDateFilter={false}
       />
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -283,6 +287,97 @@ export default function FunilPage() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* Card "Leads sem proposta" — só aparece no pipeline Teste Implantação */}
+        {selectedPipelineId === 13215396 && (
+          <div className="mt-6 rounded-2xl border border-amber-500/20 p-5" style={{ backgroundColor: "rgba(245,158,11,0.04)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                <h3 className="text-sm font-semibold text-white">Leads sem Proposta</h3>
+                <InfoTooltip text="Leads ativos no pipeline Teste Implantação que ainda não passaram pelas etapas de Proposta, Objeções ou Fechamento. Indica leads que o vendedor assumiu mas não avançou no processo." />
+              </div>
+              {!loadingHumano && humanoSemProposta && (
+                <button
+                  onClick={() => setSemPropostaExpanded((v) => !v)}
+                  className="text-xs text-gray-400 hover:text-white border border-white/10 hover:border-white/30 px-3 py-1 rounded-full transition-all"
+                >
+                  {semPropostaExpanded ? "Ocultar" : "Ver leads"}
+                </button>
+              )}
+            </div>
+
+            {loadingHumano ? (
+              <div className="flex gap-6">
+                <div className="h-10 w-24 rounded animate-pulse bg-gray-700" />
+                <div className="h-10 w-48 rounded animate-pulse bg-gray-700" />
+              </div>
+            ) : humanoSemProposta ? (
+              <>
+                <div className="flex items-end gap-6 mb-4">
+                  <div>
+                    <span className="text-4xl font-bold text-amber-400">{humanoSemProposta.semProposta}</span>
+                    <span className="text-gray-500 text-sm ml-2">de {humanoSemProposta.totalAtivos} ativos</span>
+                  </div>
+                  <div className="flex-1 max-w-xs">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Sem proposta</span>
+                      <span>
+                        {humanoSemProposta.totalAtivos > 0
+                          ? ((humanoSemProposta.semProposta / humanoSemProposta.totalAtivos) * 100).toFixed(0)
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-amber-400/70"
+                        style={{
+                          width: humanoSemProposta.totalAtivos > 0
+                            ? `${(humanoSemProposta.semProposta / humanoSemProposta.totalAtivos) * 100}%`
+                            : "0%",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {semPropostaExpanded && humanoSemProposta.leads.length > 0 && (
+                  <div className="overflow-x-auto mt-2">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-widest text-gray-600 border-b border-white/5">
+                          <th className="py-2 pr-4">Lead</th>
+                          <th className="py-2 pr-4">Etapa atual</th>
+                          <th className="py-2">Responsável</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {humanoSemProposta.leads.slice(0, 50).map((lead, i) => (
+                          <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="py-2 pr-4 text-gray-300">{lead.name}</td>
+                            <td className="py-2 pr-4">
+                              <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                                {lead.stage}
+                              </span>
+                            </td>
+                            <td className="py-2 text-gray-400">{lead.responsavel}</td>
+                          </tr>
+                        ))}
+                        {humanoSemProposta.leads.length > 50 && (
+                          <tr>
+                            <td colSpan={3} className="py-2 text-center text-gray-600 text-[10px]">
+                              +{humanoSemProposta.leads.length - 50} leads não exibidos
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : null}
           </div>
         )}
       </div>

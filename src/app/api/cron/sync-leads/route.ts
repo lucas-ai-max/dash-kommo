@@ -43,12 +43,13 @@ export async function GET(request: NextRequest) {
       `[sync-leads] Custom fields: canal=${customFieldIds.canal_venda_id}, pre=${customFieldIds.pre_atendimento_id}`
     );
 
-    const PIPELINES_TO_SYNC = [9968344, 13215396, 11129984];
+    const PIPELINES_TO_SYNC = [9968344, 13215396, 11480160];
     const DAYS_BACK = 30;
     const createdAfter = new Date();
     createdAfter.setDate(createdAfter.getDate() - DAYS_BACK);
 
     let allLeads: KommoLead[] = [];
+    const leadIdsByPipeline = new Map<number, Set<number>>();
 
     for (const pipelineId of PIPELINES_TO_SYNC) {
       console.log(
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
           // Removed createdAfter to ensure all leads are fetched
         });
         console.log(`[sync-leads] Fetched ${pipelineLeads.length} leads for pipeline ${pipelineId}`);
+        leadIdsByPipeline.set(pipelineId, new Set(pipelineLeads.map((l) => l.id)));
         allLeads = allLeads.concat(pipelineLeads);
       } catch (e) {
         console.error(`[sync-leads] Error fetching pipeline ${pipelineId}:`, e);
@@ -145,6 +147,32 @@ export async function GET(request: NextRequest) {
         throw error;
       }
       totalSynced += batch.length;
+    }
+
+    // Clean up stale leads: use per-pipeline ID sets so moved/deleted leads are removed
+    for (const pipelineId of PIPELINES_TO_SYNC) {
+      const kommoIds = leadIdsByPipeline.get(pipelineId) ?? new Set<number>();
+      const { data: dbLeads } = await supabaseAdmin
+        .from("dashboard_leads")
+        .select("kommo_lead_id")
+        .eq("pipeline_id", pipelineId);
+
+      if (dbLeads) {
+        const toDelete = dbLeads
+          .filter((d) => !kommoIds.has(d.kommo_lead_id))
+          .map((d) => d.kommo_lead_id);
+
+        if (toDelete.length > 0) {
+          for (let i = 0; i < toDelete.length; i += 500) {
+            const batch = toDelete.slice(i, i + 500);
+            await supabaseAdmin
+              .from("dashboard_leads")
+              .delete()
+              .in("kommo_lead_id", batch);
+          }
+          console.log(`[sync-leads] Cleaned ${toDelete.length} stale leads from pipeline ${pipelineId}`);
+        }
+      }
     }
 
     const durationSeconds = Number(

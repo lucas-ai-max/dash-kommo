@@ -206,8 +206,38 @@ export async function fetchAllLeads(
     page++;
   }
 
+  // "Etapa de leads de entrada" is a special inbox stage that Kommo excludes
+  // from the standard pipeline filter — fetch it separately and merge
+  if (options.pipelineId && ENTRY_STAGE_IDS[options.pipelineId]) {
+    const entryStageId = ENTRY_STAGE_IDS[options.pipelineId];
+    const existingIds = new Set(allLeads.map((l) => l.id));
+    let entryPage = 1;
+    while (true) {
+      const entryData = await fetchKommo<KommoLeadResponse>("/leads", {
+        limit: "250",
+        with: "loss_reason",
+        [`filter[statuses][0][pipeline_id]`]: String(options.pipelineId),
+        [`filter[statuses][0][status_id]`]: String(entryStageId),
+        page: String(entryPage),
+      });
+      if (!entryData._embedded?.leads?.length) break;
+      const newLeads = entryData._embedded.leads.filter((l) => !existingIds.has(l.id));
+      allLeads.push(...newLeads);
+      console.log(`[Kommo] Entry stage page ${entryPage}: ${entryData._embedded.leads.length} leads (${newLeads.length} new)`);
+      if (!entryData._links?.next) break;
+      entryPage++;
+    }
+  }
+
   return allLeads;
 }
+
+// Entry stage IDs per pipeline (special inbox stage excluded from standard filter)
+const ENTRY_STAGE_IDS: Record<number, number> = {
+  9968344: 76523124,
+  13215396: 101900676,
+  11480160: 88147668,
+};
 
 export async function fetchPipelinesMap(): Promise<PipelineMap> {
   const data = await fetchKommo<{
