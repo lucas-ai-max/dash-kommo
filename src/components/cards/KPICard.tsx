@@ -2,6 +2,7 @@
 
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { ReactNode } from "react";
+import InfoTooltip from "@/components/ui/InfoTooltip";
 
 interface KPICardProps {
   label: string;
@@ -15,6 +16,7 @@ interface KPICardProps {
   color?: "blue" | "green" | "purple" | "orange" | "cyan" | "red";
   /** "glow" = Stitch style (radial glow behind icon, no left border, larger value) */
   variant?: "default" | "glow";
+  tooltip?: string;
 }
 
 const COLOR_MAP = {
@@ -73,6 +75,7 @@ export default function KPICard({
   icon,
   color,
   variant = "default",
+  tooltip,
 }: KPICardProps) {
   const c = color ? COLOR_MAP[color] : null;
 
@@ -102,7 +105,10 @@ export default function KPICard({
         )}
         <div className="flex justify-between items-center relative z-10">
           <div>
-            <p className="text-gray-400 text-sm font-medium">{label}</p>
+            <p className="text-gray-400 text-sm font-medium flex items-center gap-1.5">
+              {label}
+              {tooltip && <InfoTooltip text={tooltip} />}
+            </p>
             <div className="flex items-baseline gap-1 mt-1">
               {prefix && <span className="text-base text-gray-400">{prefix}</span>}
               <h3 className="text-3xl font-bold text-white">
@@ -131,7 +137,10 @@ export default function KPICard({
         }`}
     >
       <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-gray-400">{label}</p>
+        <p className="text-sm font-medium text-gray-400 flex items-center gap-1.5">
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </p>
         {icon && c && (
           <div className={`rounded-lg p-2 ${c.bg}`}>
             <div className={c.text}>{icon}</div>

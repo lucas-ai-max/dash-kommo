@@ -11,7 +11,7 @@ interface DateFilterContextType {
 }
 
 export const DateFilterContext = createContext<DateFilterContextType>({
-  periodo: "mes_atual",
+  periodo: "todos",
   setPeriodo: () => {},
   periodoLabel: "Mês atual",
   periodoQuery: "mensal",
@@ -23,6 +23,7 @@ export function useDateFilter() {
 
 export function getPeriodoLabel(p: Periodo): string {
   const labels: Record<Periodo, string> = {
+    todos: "Todos",
     hoje: "Hoje",
     "7dias": "Últimos 7 dias",
     "30dias": "Últimos 30 dias",
@@ -35,6 +36,7 @@ export function getPeriodoLabel(p: Periodo): string {
 
 export function getPeriodoQuery(p: Periodo): string {
   const queries: Record<Periodo, string> = {
+    todos: "mensal",
     hoje: "diario",
     "7dias": "semanal",
     "30dias": "mensal",

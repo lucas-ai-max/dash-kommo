@@ -4,7 +4,7 @@ import { useDateFilter, getPeriodoLabel } from "@/hooks/useDateFilter";
 import type { Periodo } from "@/types/metrics";
 import { Calendar } from "lucide-react";
 
-const periodos: Periodo[] = ["hoje", "7dias", "30dias", "mes_atual"];
+const periodos: Periodo[] = ["todos", "hoje", "7dias", "30dias", "mes_atual"];
 
 export default function DateFilter() {
   const { periodo, setPeriodo } = useDateFilter();

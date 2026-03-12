@@ -4,6 +4,7 @@ import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
 import { usePerdasData } from "@/hooks/useMetrics";
 import type { DashboardPerdas } from "@/types/database";
+import InfoTooltip from "@/components/ui/InfoTooltip";
 
 const CARD_BG = "#14161f";
 const ACCENT = "#ff5252";
@@ -33,13 +34,16 @@ function HBarRow({ label, value, max }: { label: string; value: number; max: num
 }
 
 // ─── Mini KPI card ────────────────────────────────────────────────────────────
-function MiniKPI({ label, value }: { label: string; value: string | number }) {
+function MiniKPI({ label, value, tooltip }: { label: string; value: string | number; tooltip?: string }) {
   return (
     <div
       className="rounded-lg p-2.5 border border-gray-800 flex flex-col gap-1"
       style={{ backgroundColor: CARD_BG }}
     >
-      <span className="text-[11px] text-gray-400 leading-tight">{label}</span>
+      <span className="text-[11px] text-gray-400 leading-tight flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </span>
       <span className="text-xl font-bold leading-none mt-auto" style={{ color: ACCENT }}>
         {value}
       </span>
@@ -119,19 +123,22 @@ function PipelineSection({
 
       {/* 4 KPI mini-cards */}
       <div className="grid grid-cols-4 gap-2">
-        <MiniKPI label="Total de Perdas" value={totalPerdas} />
-        <MiniKPI label="Motivos Distintos" value={motivoRanking.length} />
+        <MiniKPI label="Total de Perdas" value={totalPerdas} tooltip="Quantidade de leads marcados como perdidos na pipeline." />
+        <MiniKPI label="Motivos Distintos" value={motivoRanking.length} tooltip="Quantidade de motivos de perda diferentes registrados." />
         {/* Principal Motivo — special: smaller text */}
         <div
           className="rounded-lg p-2.5 border border-gray-800 flex flex-col gap-1"
           style={{ backgroundColor: CARD_BG }}
         >
-          <span className="text-[11px] text-gray-400 leading-tight">Principal Motivo</span>
+          <span className="text-[11px] text-gray-400 leading-tight flex items-center gap-1">
+            Principal Motivo
+            <InfoTooltip text="Motivo de perda com maior frequência." />
+          </span>
           <span className="text-xs font-bold leading-tight mt-auto line-clamp-2" style={{ color: ACCENT }}>
             {topMotivo?.motivo || "—"}
           </span>
         </div>
-        <MiniKPI label="% do Principal" value={topPct} />
+        <MiniKPI label="% do Principal" value={topPct} tooltip="Percentual do motivo mais frequente sobre o total de perdas." />
       </div>
 
       {/* Bar chart */}
@@ -219,7 +226,6 @@ export default function PerdasPage() {
       <Header
         title="Diagnóstico de Perdas Moderno"
         subtitle="Análise detalhada das etapas do pipeline e motivos de perdas."
-        showDateFilter={false}
       />
 
       <div className="flex-1 overflow-y-auto p-5">

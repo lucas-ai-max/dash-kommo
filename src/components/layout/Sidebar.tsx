@@ -16,7 +16,7 @@ const navItems = [
   { href: "/funil", label: "Funil", icon: Filter },
   { href: "/vendedores", label: "Vendedores", icon: Users },
   { href: "/canais", label: "Canais", icon: BarChart3 },
-  { href: "/ia", label: "IA", icon: Bot },
+  { href: "/ia", label: "IA/SDR", icon: Bot },
   { href: "/perdas", label: "Perdas", icon: XCircle },
 ];
 

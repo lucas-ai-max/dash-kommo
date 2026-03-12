@@ -8,6 +8,7 @@ import { useDateFilter } from "@/hooks/useDateFilter";
 import { useVendedorMetrics, usePipelineFunil } from "@/hooks/useMetrics";
 import FunnelChart from "@/components/charts/FunnelChart";
 import { Users, ShoppingCart, DollarSign, Percent, Trophy } from "lucide-react";
+import InfoTooltip from "@/components/ui/InfoTooltip";
 
 const EXCLUDED_VENDORS = ["Velocity Digital Company", "Eryck Henrique Matos"];
 const CARD_BG = "#161B26";
@@ -61,6 +62,7 @@ function GlowKPICard({
   iconBg,
   iconText,
   loading,
+  tooltip,
 }: {
   label: string;
   value: string | number;
@@ -71,6 +73,7 @@ function GlowKPICard({
   iconBg: string;
   iconText: string;
   loading?: boolean;
+  tooltip?: string;
 }) {
   if (loading) {
     return (
@@ -96,7 +99,10 @@ function GlowKPICard({
         style={{ backgroundColor: glowColor.replace("0.3", "0.15") }}
       />
       <div className="relative z-10">
-        <p className="text-sm text-gray-400 mb-1">{label}</p>
+        <p className="text-sm text-gray-400 mb-1 flex items-center gap-1.5">
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </p>
         <div className="flex items-baseline gap-1">
           {prefix && <span className="text-2xl text-gray-400">{prefix}</span>}
           <h3 className="text-4xl font-bold text-white">
@@ -133,12 +139,15 @@ export default function VendedoresPage() {
 
   const top3 = currentData.slice(0, 3);
 
+  const eryck = (vendedores || []).find((v) =>
+    (v.responsible_user_name || "").toLowerCase().includes("eryck")
+  );
+
   return (
     <>
       <Header
         title="Ranking de Vendedores Moderno"
         subtitle="Métricas individuais e comparativo"
-        showDateFilter={false}
       />
 
       <div className="space-y-6 p-6">
@@ -152,6 +161,7 @@ export default function VendedoresPage() {
             iconBg="rgba(59,130,246,0.1)"
             iconText="#60a5fa"
             loading={isLoading}
+            tooltip="Quantidade de vendedores com leads atribuídos no período."
           />
           <GlowKPICard
             label="Total Vendas"
@@ -161,6 +171,7 @@ export default function VendedoresPage() {
             iconBg="rgba(168,85,247,0.1)"
             iconText="#c084fc"
             loading={isLoading}
+            tooltip="Soma de leads ganhos de todos os vendedores."
           />
           <GlowKPICard
             label="Receita Total"
@@ -171,6 +182,7 @@ export default function VendedoresPage() {
             iconBg="rgba(34,197,94,0.1)"
             iconText="#4ade80"
             loading={isLoading}
+            tooltip="Soma dos valores de todos os leads ganhos por vendedores."
           />
           <GlowKPICard
             label="Conversão Média"
@@ -181,8 +193,43 @@ export default function VendedoresPage() {
             iconBg="rgba(59,130,246,0.1)"
             iconText="#60a5fa"
             loading={isLoading}
+            tooltip="Média da taxa de conversão individual de cada vendedor."
           />
         </section>
+
+        {/* Card Eryck (SDR) */}
+        {eryck && (
+          <section
+            className="rounded-xl border border-purple-500/30 p-4 flex items-center gap-6"
+            style={{ backgroundColor: CARD_BG, boxShadow: "inset 0 0 30px rgba(168,85,247,0.1), 0 0 12px rgba(168,85,247,0.2)" }}
+          >
+            <div className="flex-shrink-0">
+              <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: "rgba(168,85,247,0.3)" }}>
+                {(eryck.responsible_user_name || "E").slice(0, 1)}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-wide">SDR — {eryck.responsible_user_name}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Leads qualificados e repassados para vendedores</p>
+            </div>
+            <div className="grid grid-cols-3 gap-6 text-right">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Leads</p>
+                <p className="text-lg font-bold text-white">{eryck.total_leads}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Vendas</p>
+                <p className="text-lg font-bold text-green-400">{eryck.leads_won}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Conversão</p>
+                <p className="text-lg font-bold text-purple-400">
+                  {eryck.taxa_conversao != null ? `${eryck.taxa_conversao}%` : "—"}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Leaderboard — horizontal rows (gold / silver / bronze) */}
         <section className="space-y-4">

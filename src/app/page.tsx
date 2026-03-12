@@ -11,7 +11,7 @@ import {
   useVendedorMetrics,
   useFunilData,
 } from "@/hooks/useMetrics";
-import { Users, Percent, CreditCard, DollarSign, ChevronRight } from "lucide-react";
+import { Users, Percent, CreditCard, DollarSign, ChevronRight, Clock } from "lucide-react";
 
 const EXCLUDED_VENDORS = ["Velocity Digital Company", "Eryck Henrique Matos"];
 
@@ -38,7 +38,8 @@ export default function OverviewPage() {
   const { data: metrics, isLoading } = useOverviewMetrics(periodo);
   const { data: canais } = useCanalMetrics(periodo);
   const { data: vendedores } = useVendedorMetrics(periodo);
-  const { data: funil } = useFunilData(periodo);
+  const { data: funilVendedores } = useFunilData(periodo, 9968344);
+  const { data: funilTeste } = useFunilData(periodo, 13215396);
 
   const filteredVendedores = (vendedores || [])
     .filter((v) => !EXCLUDED_VENDORS.includes(v.responsible_user_name || ""))
@@ -51,7 +52,10 @@ export default function OverviewPage() {
     "Venda ganha",
   ];
 
-  const filteredFunil = (funil || []).filter(
+  const filteredFunilVendedores = (funilVendedores || []).filter(
+    (f) => !EXCLUDED_STAGES.some((s) => s.toLowerCase() === (f.status_name || "").toLowerCase())
+  );
+  const filteredFunilTeste = (funilTeste || []).filter(
     (f) => !EXCLUDED_STAGES.some((s) => s.toLowerCase() === (f.status_name || "").toLowerCase())
   );
 
@@ -60,14 +64,13 @@ export default function OverviewPage() {
       <Header
         title="Overview"
         subtitle="Visão geral do desempenho comercial"
-        showDateFilter={false}
       />
 
       {/* Scrollable content area matching Stitch HTML */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
 
         {/* KPI Cards Grid — 4 cols, glow variant */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
           <KPICard
             label="Total de Leads"
             value={metrics?.total_leads ?? 0}
@@ -75,6 +78,7 @@ export default function OverviewPage() {
             icon={<Users className="h-6 w-6" />}
             color="blue"
             variant="glow"
+            tooltip="Leads ativos + ganhos das pipelines Vendedores e Teste Implementação. Leads com status 'Venda perdida' (fechados como perdidos no Kommo) são excluídos da contagem."
           />
           <KPICard
             label="Taxa de Conversão"
@@ -88,6 +92,7 @@ export default function OverviewPage() {
             icon={<Percent className="h-6 w-6" />}
             color="green"
             variant="glow"
+            tooltip="Leads ganhos ÷ total de leads × 100."
           />
           <KPICard
             label="Ticket Médio"
@@ -101,6 +106,7 @@ export default function OverviewPage() {
             icon={<CreditCard className="h-6 w-6" />}
             color="purple"
             variant="glow"
+            tooltip="Receita total ÷ quantidade de vendas ganhas."
           />
           <KPICard
             label="Receita Total"
@@ -114,6 +120,21 @@ export default function OverviewPage() {
             icon={<DollarSign className="h-6 w-6" />}
             color="green"
             variant="glow"
+            tooltip="Soma dos valores de todos os leads ganhos."
+          />
+          <KPICard
+            label="Ciclo Médio"
+            value={
+              metrics?.ciclo_medio_dias != null
+                ? metrics.ciclo_medio_dias
+                : "—"
+            }
+            suffix="dias"
+            loading={isLoading}
+            icon={<Clock className="h-6 w-6" />}
+            color="orange"
+            variant="glow"
+            tooltip="Tempo médio em dias entre criação e fechamento dos leads ganhos."
           />
         </section>
 
@@ -211,10 +232,16 @@ export default function OverviewPage() {
           </div>
         </section>
 
-        {/* Row 3: Distribuição por Etapa + Performance por Canal */}
+        {/* Row 3: Distribuição por Etapa (separado por pipeline) + Performance por Canal */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
-            <DonutChart data={filteredFunil} />
+          <div className="rounded-2xl border border-white/5 overflow-hidden flex" style={{ backgroundColor: "#1b1e2b" }}>
+            <div className="flex-1 min-w-0">
+              <DonutChart data={filteredFunilVendedores} title="Vendedores" />
+            </div>
+            <div className="w-px bg-white/5 self-stretch" />
+            <div className="flex-1 min-w-0">
+              <DonutChart data={filteredFunilTeste} title="Teste Implantação" />
+            </div>
           </div>
           <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
             <ChannelBarChart data={canais || []} />
