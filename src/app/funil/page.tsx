@@ -321,25 +321,51 @@ export default function FunilPage() {
                     <span className="text-4xl font-bold text-amber-400">{humanoSemProposta.semProposta}</span>
                     <span className="text-gray-500 text-sm ml-2">de {humanoSemProposta.totalAtivos} ativos</span>
                   </div>
-                  <div className="flex-1 max-w-xs">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Sem proposta</span>
-                      <span>
-                        {humanoSemProposta.totalAtivos > 0
-                          ? ((humanoSemProposta.semProposta / humanoSemProposta.totalAtivos) * 100).toFixed(0)
-                          : 0}%
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-amber-400/70"
-                        style={{
-                          width: humanoSemProposta.totalAtivos > 0
-                            ? `${(humanoSemProposta.semProposta / humanoSemProposta.totalAtivos) * 100}%`
-                            : "0%",
-                        }}
-                      />
-                    </div>
+                  <div className="flex-1 max-w-md">
+                    {(() => {
+                      const pctSem = humanoSemProposta.totalAtivos > 0
+                        ? (humanoSemProposta.semProposta / humanoSemProposta.totalAtivos) * 100
+                        : 0;
+                      const pctCom = 100 - pctSem;
+                      const metaOk = pctSem <= 30;
+                      return (
+                        <>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-500">Sem proposta: {pctSem.toFixed(0)}%</span>
+                            <span className="text-gray-500">Com proposta: {pctCom.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-3 rounded-full bg-white/5 overflow-hidden relative">
+                            <div
+                              className="h-full rounded-l-full"
+                              style={{
+                                width: `${pctSem}%`,
+                                backgroundColor: pctSem > 30 ? "#ef4444" : "#f59e0b",
+                              }}
+                            />
+                            <div
+                              className="absolute top-0 h-full rounded-r-full"
+                              style={{
+                                left: `${pctSem}%`,
+                                width: `${pctCom}%`,
+                                backgroundColor: "#10b981",
+                                opacity: 0.6,
+                              }}
+                            />
+                            {/* Meta line at 30% */}
+                            <div
+                              className="absolute top-0 h-full w-0.5 bg-white/60"
+                              style={{ left: "30%" }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] mt-1">
+                            <span className={metaOk ? "text-green-400" : "text-red-400"}>
+                              Meta: max 30% sem proposta {metaOk ? "- OK" : "- ACIMA"}
+                            </span>
+                            <span className="text-gray-600">|  70% com proposta</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 

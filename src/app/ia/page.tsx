@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics } from "@/hooks/useMetrics";
+import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics, useSDRResponseTimeStats } from "@/hooks/useMetrics";
 import {
   AreaChart,
   Area,
@@ -104,6 +104,7 @@ export default function IAPage() {
   const { data: responseTimes } = useIAResponseTimes();
   const { data: totalPerdidos = 0 } = useLeadsPerdidos(periodo);
   const { data: sdr, isLoading: sdrLoading } = useSDRMetrics(periodo);
+  const { data: sdrResponseTime } = useSDRResponseTimeStats();
 
   const totalConversas = (iaData || []).reduce((s, d) => s + (d.total_conversas ?? 0), 0);
   const totalFinalizadas = (iaData || []).reduce((s, d) => s + (d.conversas_finalizadas ?? 0), 0);
@@ -423,46 +424,96 @@ export default function IAPage() {
                 )}
               </div>
 
-              {/* Insight tempo de resposta (resultado da análise) */}
+              {/* Insight tempo de resposta (dynamic) */}
               <div className="rounded-xl border border-purple-500/20 p-5" style={{ backgroundColor: "rgba(139,92,246,0.06)" }}>
                 <div className="flex items-center gap-1.5 mb-3">
                   <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Tempo de Resposta</p>
-                  <InfoTooltip text="Tempo entre a criação do lead e o primeiro contato do Eryck. Baseado em amostra de 150 leads dos últimos 60 dias." />
+                  <InfoTooltip text="Tempo entre a criacao do lead e o primeiro contato do Eryck. Calculado com base nos leads fechados do pipeline SDR." />
                 </div>
-                <div className="space-y-2.5 text-sm">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-gray-300">Tempo mediano</span>
-                      <p className="text-[11px] text-gray-500">Metade dos leads são respondidos antes desse tempo</p>
+                {sdrResponseTime && sdrResponseTime.sample_size > 0 ? (
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-gray-300">Tempo mediano</span>
+                        <p className="text-[11px] text-gray-500">Metade dos leads sao respondidos antes desse tempo</p>
+                      </div>
+                      <span className="text-white font-mono font-bold text-base ml-4 shrink-0">
+                        {sdrResponseTime.mediana_h != null
+                          ? sdrResponseTime.mediana_h < 24
+                            ? `${sdrResponseTime.mediana_h}h`
+                            : `${(sdrResponseTime.mediana_h / 24).toFixed(1)}d`
+                          : "—"}
+                      </span>
                     </div>
-                    <span className="text-white font-mono font-bold text-base ml-4 shrink-0">1.6h</span>
+                    <div className="h-px bg-white/5" />
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-gray-300">Respondidos em &lt; 5 min</span>
+                        <p className="text-[11px] text-gray-500">Atendimento imediato</p>
+                      </div>
+                      <span className="text-green-400 font-mono font-bold text-base ml-4 shrink-0">
+                        {sdrResponseTime.pct_under_5min != null ? `${sdrResponseTime.pct_under_5min}%` : "—"}
+                      </span>
+                    </div>
+                    <div className="h-px bg-white/5" />
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-gray-300">Demora acima de 24h</span>
+                        <p className="text-[11px] text-gray-500">Leads com alto risco de esfriamento</p>
+                      </div>
+                      <span className="text-red-400 font-mono font-bold text-base ml-4 shrink-0">
+                        {sdrResponseTime.pct_over_24h != null ? `${sdrResponseTime.pct_over_24h}%` : "—"}
+                      </span>
+                    </div>
+                    <div className="h-px bg-white/5" />
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-gray-300">P90 (percentil 90)</span>
+                        <p className="text-[11px] text-gray-500">90% dos leads sao respondidos ate esse prazo</p>
+                      </div>
+                      <span className="text-yellow-400 font-mono font-bold text-base ml-4 shrink-0">
+                        {sdrResponseTime.p90_h != null
+                          ? sdrResponseTime.p90_h < 24
+                            ? `${sdrResponseTime.p90_h}h`
+                            : `${(sdrResponseTime.p90_h / 24).toFixed(1)} dias`
+                          : "—"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-3">Amostra: {sdrResponseTime.sample_size} leads</p>
                   </div>
-                  <div className="h-px bg-white/5" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-gray-300">Respondidos em &lt; 5 min</span>
-                      <p className="text-[11px] text-gray-500">Atendimento imediato — excelente</p>
-                    </div>
-                    <span className="text-green-400 font-mono font-bold text-base ml-4 shrink-0">40.7%</span>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 text-center">
+                    <p>Sem dados de tempo de resposta.</p>
+                    <p className="text-[10px] mt-1 text-gray-600">O campo tempo_primeiro_atendimento_min precisa ser populado no sync.</p>
                   </div>
-                  <div className="h-px bg-white/5" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-gray-300">Demora acima de 24h</span>
-                      <p className="text-[11px] text-gray-500">Leads com alto risco de esfriamento</p>
-                    </div>
-                    <span className="text-red-400 font-mono font-bold text-base ml-4 shrink-0">15.3%</span>
+                )}
+              </div>
+
+              {/* Ciclo Comparativo: IA vs SDR */}
+              <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: "#1F2937" }}>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Ciclo Medio Comparativo</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-1">IA (Bot)</p>
+                    <span className="text-2xl font-bold text-white">
+                      {responseTimes?.humano_min != null ? `${responseTimes.humano_min}` : "—"}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-1">min</span>
                   </div>
-                  <div className="h-px bg-white/5" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-gray-300">P90 (percentil 90)</span>
-                      <p className="text-[11px] text-gray-500">90% dos leads são respondidos até esse prazo</p>
-                    </div>
-                    <span className="text-yellow-400 font-mono font-bold text-base ml-4 shrink-0">1.2 dias</span>
+                  <div className="text-center">
+                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-1">SDR (Eryck)</p>
+                    <span className="text-2xl font-bold text-white">
+                      {sdr?.ciclo_medio_h != null
+                        ? sdr.ciclo_medio_h < 24
+                          ? sdr.ciclo_medio_h.toFixed(1)
+                          : (sdr.ciclo_medio_h / 24).toFixed(1)
+                        : "—"}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-1">
+                      {sdr?.ciclo_medio_h != null ? (sdr.ciclo_medio_h < 24 ? "h" : "d") : ""}
+                    </span>
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-600 mt-3">Amostra: 150 leads · últimos 60 dias</p>
               </div>
             </div>
           </div>

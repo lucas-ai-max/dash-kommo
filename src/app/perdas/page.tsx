@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
 import { usePerdasData } from "@/hooks/useMetrics";
@@ -213,28 +214,84 @@ function PipelineSection({
 export default function PerdasPage() {
   const { periodo } = useDateFilter();
   const { data: perdas, isLoading } = usePerdasData(periodo);
+  const [filterCanal, setFilterCanal] = useState<string | undefined>(undefined);
+  const [filterVendor, setFilterVendor] = useState<string | undefined>(undefined);
   const currentData = perdas || [];
 
-  const sdrData = currentData.filter((p) => p.pipeline_name === "BOT");
-  const vendedoresData = currentData.filter((p) => p.pipeline_name === "VENDEDORES");
-  const implantacaoData = currentData.filter(
+  // Extract unique canais and vendors for filters
+  const canais = useMemo(() => {
+    const set = new Set<string>();
+    currentData.forEach((p) => set.add(p.canal_venda || "Sem canal"));
+    return Array.from(set).sort();
+  }, [currentData]);
+
+  const vendors = useMemo(() => {
+    const set = new Set<string>();
+    currentData.forEach((p) => set.add(p.responsible_user_name || "Sem responsavel"));
+    return Array.from(set).sort();
+  }, [currentData]);
+
+  // Apply filters
+  const filtered = currentData.filter((p) => {
+    if (filterCanal && (p.canal_venda || "Sem canal") !== filterCanal) return false;
+    if (filterVendor && (p.responsible_user_name || "Sem responsavel") !== filterVendor) return false;
+    return true;
+  });
+
+  const sdrData = filtered.filter((p) => p.pipeline_name === "BOT");
+  const vendedoresData = filtered.filter((p) => p.pipeline_name === "VENDEDORES");
+  const implantacaoData = filtered.filter(
     (p) => p.pipeline_name !== "VENDEDORES" && p.pipeline_name !== "BOT"
   );
 
   return (
     <>
       <Header
-        title="Diagnóstico de Perdas Moderno"
-        subtitle="Análise detalhada das etapas do pipeline e motivos de perdas."
+        title="Diagnostico de Perdas"
+        subtitle="Analise detalhada dos motivos de perdas por pipeline."
       />
 
       <div className="flex-1 overflow-y-auto p-5">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4 mb-5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Canal:</span>
+            <select
+              value={filterCanal || ""}
+              onChange={(e) => setFilterCanal(e.target.value || undefined)}
+              className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-300 px-3 py-1.5 focus:outline-none focus:border-purple-500"
+            >
+              <option value="">Todos</option>
+              {canais.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Responsavel:</span>
+            <select
+              value={filterVendor || ""}
+              onChange={(e) => setFilterVendor(e.target.value || undefined)}
+              className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-300 px-3 py-1.5 focus:outline-none focus:border-purple-500"
+            >
+              <option value="">Todos</option>
+              {vendors.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          {(filterCanal || filterVendor) && (
+            <button
+              onClick={() => { setFilterCanal(undefined); setFilterVendor(undefined); }}
+              className="text-xs text-gray-400 hover:text-white border border-white/10 hover:border-white/30 px-3 py-1 rounded-full transition-all"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
           <PipelineSection title="Perdas — SDR" data={sdrData} isLoading={isLoading} />
           <PipelineSection title="Perdas — Vendedores" data={vendedoresData} isLoading={isLoading} />
           {implantacaoData.length > 0
-            ? <PipelineSection title="Perdas — Teste Implantação" data={implantacaoData} isLoading={isLoading} />
-            : <EmptyState title="Perdas — Teste Implantação" />
+            ? <PipelineSection title="Perdas — Teste Implantacao" data={implantacaoData} isLoading={isLoading} />
+            : <EmptyState title="Perdas — Teste Implantacao" />
           }
         </div>
       </div>

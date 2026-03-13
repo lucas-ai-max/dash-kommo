@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useCanalMetrics, useLeadsNegociacoesQuentes } from "@/hooks/useMetrics";
+import { useCanalMetrics, useLeadsNegociacoesQuentes, useVendedorMetrics } from "@/hooks/useMetrics";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 
@@ -64,9 +65,15 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
 
 export default function CanaisPage() {
   const { periodo } = useDateFilter();
-  const { data: canais, isLoading } = useCanalMetrics(periodo);
+  const [selectedVendor, setSelectedVendor] = useState<number | undefined>(undefined);
+  const { data: vendedores } = useVendedorMetrics(periodo);
+  const { data: canais, isLoading } = useCanalMetrics(periodo, selectedVendor);
   const { data: negQuentes } = useLeadsNegociacoesQuentes();
   const currentData = (canais || []).sort((a, b) => b.total_leads - a.total_leads);
+
+  const vendorList = (vendedores || [])
+    .filter((v) => v.responsible_user_name && v.total_leads > 0)
+    .sort((a, b) => (b.total_leads ?? 0) - (a.total_leads ?? 0));
 
   const totalLeads = currentData.reduce((s, c) => s + c.total_leads, 0);
 
@@ -100,11 +107,40 @@ export default function CanaisPage() {
     <>
       <Header
         title="Performance de Canais Moderna"
-        subtitle="Análise de aquisição e eficiência por origem de leads"
+        subtitle="Analise de aquisicao e eficiencia por origem de leads"
       />
 
       {/* 3-col layout: cards (2/3) + sidebar (1/3) */}
       <div className="p-6">
+        {/* Vendor filter */}
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-xs text-gray-500 uppercase tracking-wider">Responsavel:</span>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedVendor(undefined)}
+              className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                selectedVendor === undefined
+                  ? "bg-purple-600 text-white border border-white/10"
+                  : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+              }`}
+            >
+              Todos
+            </button>
+            {vendorList.map((v) => (
+              <button
+                key={v.responsible_user_id}
+                onClick={() => setSelectedVendor(v.responsible_user_id)}
+                className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                  selectedVendor === v.responsible_user_id
+                    ? "bg-purple-600 text-white border border-white/10"
+                    : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                }`}
+              >
+                {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Left: Channel Cards Grid ── */}

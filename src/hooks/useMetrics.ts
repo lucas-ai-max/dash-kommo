@@ -17,6 +17,8 @@ import {
   fetchSDRMetrics,
   fetchLeadsHumanoSemProposta,
   fetchLeadsNegociacoesQuentes,
+  fetchDailyLeadCounts,
+  fetchSDRResponseTimeStats,
 } from "@/lib/queries";
 import type { Periodo } from "@/types/metrics";
 
@@ -38,10 +40,10 @@ export function useMetricsHistory(days: number = 30) {
   );
 }
 
-export function useCanalMetrics(periodo: Periodo) {
+export function useCanalMetrics(periodo: Periodo, responsibleUserId?: number) {
   return useSWR(
-    ["canal-metrics", periodo],
-    () => fetchCanalMetrics(periodo),
+    ["canal-metrics", periodo, responsibleUserId],
+    () => fetchCanalMetrics(periodo, responsibleUserId),
     { refreshInterval: REFRESH_INTERVAL }
   );
 }
@@ -122,6 +124,20 @@ export function useLeadsHumanoSemProposta() {
 
 export function useLeadsNegociacoesQuentes() {
   return useSWR("leads-negociacoes-quentes", fetchLeadsNegociacoesQuentes, {
+    refreshInterval: REFRESH_INTERVAL,
+  });
+}
+
+export function useDailyLeadCounts(periodo: Periodo, pipelineId?: number) {
+  return useSWR(
+    ["daily-lead-counts", periodo, pipelineId],
+    () => fetchDailyLeadCounts(periodo, pipelineId),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
+}
+
+export function useSDRResponseTimeStats() {
+  return useSWR("sdr-response-time-stats", fetchSDRResponseTimeStats, {
     refreshInterval: REFRESH_INTERVAL,
   });
 }

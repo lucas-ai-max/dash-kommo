@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/layout/Header";
 import KPICard from "@/components/cards/KPICard";
 import ChannelBarChart from "@/components/charts/ChannelBarChart";
@@ -10,8 +11,10 @@ import {
   useCanalMetrics,
   useVendedorMetrics,
   useFunilData,
+  useDailyLeadCounts,
 } from "@/hooks/useMetrics";
 import { Users, Percent, CreditCard, DollarSign, ChevronRight, Clock } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const EXCLUDED_VENDORS = ["Velocity Digital Company", "Eryck Henrique Matos"];
 
@@ -33,13 +36,28 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+const PIPELINE_OPTIONS = [
+  { id: undefined as number | undefined, name: "Todos" },
+  { id: 9968344, name: "Vendedores" },
+  { id: 13215396, name: "Teste Implantacao" },
+  { id: 11480160, name: "SDR Eryck" },
+];
+
 export default function OverviewPage() {
   const { periodo } = useDateFilter();
+  const [selectedPipeline, setSelectedPipeline] = useState<number | undefined>(undefined);
   const { data: metrics, isLoading } = useOverviewMetrics(periodo);
   const { data: canais } = useCanalMetrics(periodo);
   const { data: vendedores } = useVendedorMetrics(periodo);
   const { data: funilVendedores } = useFunilData(periodo, 9968344);
   const { data: funilTeste } = useFunilData(periodo, 13215396);
+  const { data: dailyLeads } = useDailyLeadCounts(periodo, selectedPipeline);
+
+  const chartData = (dailyLeads || []).map((d) => ({
+    date: new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    leads: d.total,
+    ganhos: d.won,
+  }));
 
   const filteredVendedores = (vendedores || [])
     .filter((v) => !EXCLUDED_VENDORS.includes(v.responsible_user_name || ""))
@@ -138,7 +156,57 @@ export default function OverviewPage() {
           />
         </section>
 
-        {/* Row 2: Ranking de Vendedores (full width) */}
+        {/* Row 2: Leads por Dia chart */}
+        <section>
+          <div className="rounded-2xl border border-white/5 p-6" style={{ backgroundColor: "#1b1e2b" }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-200">Leads por Dia</h2>
+              <div className="flex gap-2">
+                {PIPELINE_OPTIONS.map((p) => (
+                  <button
+                    key={p.name}
+                    onClick={() => setSelectedPipeline(p.id)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                      selectedPipeline === p.id
+                        ? "bg-purple-600 text-white border border-white/10"
+                        : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="gradLeads" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradGanhos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(55,65,81,0.2)" />
+                  <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "rgba(17,24,39,0.95)", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="leads" name="Leads" stroke="#3b82f6" strokeWidth={2} fill="url(#gradLeads)" dot={false} />
+                  <Area type="monotone" dataKey="ganhos" name="Ganhos" stroke="#10b981" strokeWidth={2} fill="url(#gradGanhos)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-gray-600 text-sm py-12">Sem dados para o periodo selecionado</p>
+            )}
+          </div>
+        </section>
+
+        {/* Row 3: Ranking de Vendedores (full width) */}
         <section>
           <div
             className="rounded-2xl border border-white/5 flex flex-col overflow-hidden"

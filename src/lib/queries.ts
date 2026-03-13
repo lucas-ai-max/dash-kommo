@@ -153,7 +153,8 @@ interface CanalRow {
 }
 
 export async function fetchCanalMetrics(
-  periodo: Periodo
+  periodo: Periodo,
+  responsibleUserId?: number
 ): Promise<DashboardMetricsCanal[]> {
   const range = getDateRange(periodo);
   const selectFields = "canal_venda, is_won, is_lost, price, ciclo_dias, qtd_followups, created_at, closed_at";
@@ -162,6 +163,10 @@ export async function fetchCanalMetrics(
   let query = supabase
     .from("dashboard_leads")
     .select(selectFields);
+
+  if (responsibleUserId) {
+    query = query.eq("responsible_user_id", responsibleUserId);
+  }
 
   if (range) {
     query = query.gte("created_at", range.from).lte("created_at", range.to);
@@ -178,6 +183,9 @@ export async function fetchCanalMetrics(
       .not("closed_at", "is", null)
       .gte("closed_at", range.from)
       .lte("closed_at", range.to);
+    if (responsibleUserId) {
+      closedQuery = closedQuery.eq("responsible_user_id", responsibleUserId);
+    }
     closedLeads = await fetchAllRows<any>(closedQuery);
   }
 
@@ -890,6 +898,102 @@ export async function fetchLeadsNegociacoesQuentes(): Promise<LeadsNegociacoesQu
     lost,
     ativos,
     taxa_conversao: decided > 0 ? Number(((won / decided) * 100).toFixed(1)) : null,
+  };
+}
+
+// ── Leads por dia (daily snapshot) ──────────────────────────────────────────
+export interface DailyLeadCount {
+  date: string;
+  total: number;
+  won: number;
+  lost: number;
+}
+
+export async function fetchDailyLeadCounts(
+  periodo: Periodo,
+  pipelineId?: number
+): Promise<DailyLeadCount[]> {
+  const range = getDateRange(periodo);
+  // Default to last 30 days if "todos"
+  const now = new Date();
+  const effectiveFrom = range?.from ?? format(subDays(now, 30), "yyyy-MM-dd") + "T00:00:00";
+  const effectiveTo = range?.to ?? format(now, "yyyy-MM-dd") + "T23:59:59";
+
+  let query = supabase
+    .from("dashboard_leads")
+    .select("created_at, is_won, is_lost, closed_at")
+    .gte("created_at", effectiveFrom)
+    .lte("created_at", effectiveTo);
+
+  if (pipelineId) {
+    query = query.eq("pipeline_id", pipelineId);
+  } else {
+    query = query.in("pipeline_id", [9968344, 13215396]);
+  }
+
+  const leads = await fetchAllRows<any>(query);
+
+  // Group by created_at date
+  const byDate = new Map<string, { total: number; won: number; lost: number }>();
+  for (const l of leads) {
+    const date = (l.created_at || "").slice(0, 10);
+    if (!date) continue;
+    if (!byDate.has(date)) byDate.set(date, { total: 0, won: 0, lost: 0 });
+    const d = byDate.get(date)!;
+    d.total++;
+    if (l.is_won) d.won++;
+    if (l.is_lost) d.lost++;
+  }
+
+  return Array.from(byDate.entries())
+    .map(([date, counts]) => ({ date, ...counts }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ── SDR Response Time (dynamic) ─────────────────────────────────────────────
+export interface SDRResponseTimeStats {
+  mediana_h: number | null;
+  pct_under_5min: number | null;
+  pct_over_24h: number | null;
+  p90_h: number | null;
+  sample_size: number;
+}
+
+export async function fetchSDRResponseTimeStats(): Promise<SDRResponseTimeStats> {
+  // Fetch leads from SDR pipeline with first event data
+  // Uses tempo_primeiro_atendimento_min if available, otherwise calculates from events
+  const leads = await fetchAllRows<any>(
+    supabase
+      .from("dashboard_leads")
+      .select("tempo_primeiro_atendimento_min, created_at, closed_at")
+      .eq("pipeline_id", 11480160)
+      .not("closed_at", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(200)
+  );
+
+  // If tempo_primeiro_atendimento_min is populated, use it
+  const tempos = leads
+    .filter((l: any) => l.tempo_primeiro_atendimento_min != null && l.tempo_primeiro_atendimento_min > 0)
+    .map((l: any) => l.tempo_primeiro_atendimento_min as number);
+
+  if (tempos.length === 0) {
+    return { mediana_h: null, pct_under_5min: null, pct_over_24h: null, p90_h: null, sample_size: 0 };
+  }
+
+  tempos.sort((a, b) => a - b);
+  const n = tempos.length;
+  const mediana = n % 2 === 0 ? (tempos[n / 2 - 1] + tempos[n / 2]) / 2 : tempos[Math.floor(n / 2)];
+  const under5 = tempos.filter((t) => t <= 5).length;
+  const over24h = tempos.filter((t) => t > 24 * 60).length;
+  const p90idx = Math.min(Math.floor(n * 0.9), n - 1);
+
+  return {
+    mediana_h: Number((mediana / 60).toFixed(1)),
+    pct_under_5min: Number(((under5 / n) * 100).toFixed(1)),
+    pct_over_24h: Number(((over24h / n) * 100).toFixed(1)),
+    p90_h: Number((tempos[p90idx] / 60).toFixed(1)),
+    sample_size: n,
   };
 }
 
