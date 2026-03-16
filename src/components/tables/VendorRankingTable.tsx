@@ -55,6 +55,7 @@ export default function VendorRankingTable({ data }: Props) {
               <th className="px-5 py-3 text-right">Ciclo Médio</th>
               <th className="px-5 py-3 text-right">Ticket Médio</th>
               <th className="px-5 py-3 text-right">Receita</th>
+              <th className="px-5 py-3 text-right">% Bot</th>
               <th className="px-5 py-3 text-right">Meta</th>
               <th className="px-5 py-3 text-right">% Meta</th>
             </tr>
@@ -80,6 +81,15 @@ export default function VendorRankingTable({ data }: Props) {
                   </td>
                   <td className="px-5 py-3 text-right text-sm font-medium text-white">
                     {v.receita_total != null ? `R$ ${Number(v.receita_total).toLocaleString("pt-BR")}` : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-right text-sm">
+                    {v.pct_bot != null && v.pct_bot > 0 ? (
+                      <span className={`font-mono ${v.pct_bot >= 50 ? "text-purple-400 font-bold" : "text-gray-400"}`}>
+                        {v.pct_bot}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3 text-right text-sm">
                     {editingId === v.responsible_user_id ? (
@@ -116,7 +126,7 @@ export default function VendorRankingTable({ data }: Props) {
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-5 py-8 text-center text-sm text-gray-500">
+                <td colSpan={11} className="px-5 py-8 text-center text-sm text-gray-500">
                   Sem dados disponíveis
                 </td>
               </tr>

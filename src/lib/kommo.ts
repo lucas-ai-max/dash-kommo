@@ -270,6 +270,7 @@ export async function fetchUsersMap(): Promise<UserMap> {
 export async function fetchCustomFieldIds(): Promise<{
   canal_venda_id: number | null;
   pre_atendimento_id: number | null;
+  temperatura_id: number | null;
 }> {
   const data = await fetchKommo<{
     _embedded: {
@@ -279,6 +280,7 @@ export async function fetchCustomFieldIds(): Promise<{
 
   let canal_venda_id: number | null = null;
   let pre_atendimento_id: number | null = null;
+  let temperatura_id: number | null = null;
 
   for (const field of data._embedded.custom_fields) {
     const nameLower = field.name.toLowerCase();
@@ -295,9 +297,18 @@ export async function fetchCustomFieldIds(): Promise<{
     ) {
       pre_atendimento_id = field.id;
     }
+    if (
+      nameLower.includes("temperatura") ||
+      nameLower.includes("temperature") ||
+      (nameLower.includes("lead") && (nameLower.includes("quente") || nameLower.includes("frio") || nameLower.includes("morno")))
+    ) {
+      temperatura_id = field.id;
+    }
   }
 
-  return { canal_venda_id, pre_atendimento_id };
+  console.log(`[kommo] Custom fields found: canal=${canal_venda_id}, pre=${pre_atendimento_id}, temperatura=${temperatura_id}`);
+
+  return { canal_venda_id, pre_atendimento_id, temperatura_id };
 }
 
 export async function fetchLossReasons(): Promise<Record<number, string>> {
@@ -343,6 +354,78 @@ export async function fetchLeadNotes(
     return data._embedded?.notes || [];
   } catch {
     return [];
+  }
+}
+
+// ── Bulk event fetching (paginated, all leads) ─────────────────────────────
+export interface BulkEventsOptions {
+  types?: string[];
+  createdAfter?: Date;
+  limit?: number; // max pages to fetch (safety)
+}
+
+export async function fetchBulkEvents(
+  options: BulkEventsOptions = {}
+): Promise<KommoEvent[]> {
+  const allEvents: KommoEvent[] = [];
+  let page = 1;
+  const maxPages = options.limit || 100;
+
+  const params: Record<string, string> = {
+    limit: "100",
+  };
+
+  if (options.types && options.types.length > 0) {
+    options.types.forEach((t, i) => {
+      params[`filter[type][${i}]`] = t;
+    });
+  }
+
+  if (options.createdAfter) {
+    params["filter[created_at][from]"] = String(
+      Math.floor(options.createdAfter.getTime() / 1000)
+    );
+  }
+
+  while (page <= maxPages) {
+    try {
+      const data = await fetchKommo<{
+        _embedded?: { events: KommoEvent[] };
+        _links?: { next?: { href: string } };
+      }>("/events", { ...params, page: String(page) });
+
+      if (!data._embedded?.events?.length) break;
+      allEvents.push(...data._embedded.events);
+      console.log(`[Kommo] Events page ${page}: ${data._embedded.events.length} events (total: ${allEvents.length})`);
+
+      if (!data._links?.next) break;
+      page++;
+    } catch (e) {
+      console.error(`[Kommo] Error fetching events page ${page}:`, e);
+      break;
+    }
+  }
+
+  return allEvents;
+}
+
+// ── Bulk notes fetching for follow-up counting ──────────────────────────────
+export async function fetchLeadNotesCount(leadId: number): Promise<number> {
+  try {
+    const data = await fetchKommo<{
+      _embedded?: { notes: KommoNote[] };
+    }>(`/leads/${leadId}/notes`, { limit: "250" });
+    if (!data._embedded?.notes) return 0;
+    // Count outgoing notes (follow-ups): types that indicate vendor activity
+    const followupTypes = [
+      "common", "call_out", "sms_out",
+      "amocrm_delivery", "message_cashier",
+    ];
+    return data._embedded.notes.filter(
+      (n) => followupTypes.includes(n.note_type)
+    ).length;
+  } catch {
+    return 0;
   }
 }
 

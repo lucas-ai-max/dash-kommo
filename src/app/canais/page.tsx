@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useCanalMetrics, useLeadsNegociacoesQuentes, useVendedorMetrics } from "@/hooks/useMetrics";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { useCanalMetrics, useLeadsNegociacoesQuentes, useVendedorMetrics, useDailyLeadCountsByCanal } from "@/hooks/useMetrics";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 
 // ─── Channel config ──────────────────────────────────────────────────────────
@@ -23,7 +23,15 @@ const CHANNEL_CONFIG: Record<string, {
 const DEFAULT_CFG = { icon: "📊", neonColor: "#6B7280", glowColor: "rgba(107,114,128,0.4)", bgDot: "rgba(107,114,128,0.1)" };
 
 const DONUT_COLORS = ["#EF4444", "#3B82F6", "#00D64F", "#8B5CF6", "#94A3B8", "#F97316"];
+const AREA_COLORS = ["#3B82F6", "#00D64F", "#8B5CF6", "#F97316", "#EF4444", "#94A3B8"];
 const CARD_BG = "#1E212B";
+
+const PIPELINES = [
+  { id: undefined, label: "Todos" },
+  { id: 9968344, label: "Vendedores" },
+  { id: 13215396, label: "Teste Implantação" },
+  { id: 11480160, label: "SDR" },
+];
 
 // ─── SVG circular progress (matches canais.html style) ─────────────────────
 function CircularProgress({ pct, color }: { pct: number; color: string }) {
@@ -66,9 +74,11 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
 export default function CanaisPage() {
   const { periodo } = useDateFilter();
   const [selectedVendor, setSelectedVendor] = useState<number | undefined>(undefined);
+  const [selectedPipeline, setSelectedPipeline] = useState<number | undefined>(undefined);
   const { data: vendedores } = useVendedorMetrics(periodo);
-  const { data: canais, isLoading } = useCanalMetrics(periodo, selectedVendor);
+  const { data: canais, isLoading } = useCanalMetrics(periodo, selectedVendor, selectedPipeline);
   const { data: negQuentes } = useLeadsNegociacoesQuentes();
+  const { data: dailyByCanal } = useDailyLeadCountsByCanal(periodo);
   const currentData = (canais || []).sort((a, b) => b.total_leads - a.total_leads);
 
   const vendorList = (vendedores || [])
@@ -92,6 +102,34 @@ export default function CanaisPage() {
     pct: totalLeads > 0 ? Math.round((c.total_leads / totalLeads) * 100) : 0,
   }));
 
+  // Build area chart data: top 4 canais by volume, grouped by date
+  const areaChartData = useMemo(() => {
+    if (!dailyByCanal || dailyByCanal.length === 0) return { data: [], canais: [] };
+
+    // Find top 4 canais
+    const canalTotals = new Map<string, number>();
+    for (const d of dailyByCanal) {
+      canalTotals.set(d.canal, (canalTotals.get(d.canal) || 0) + d.count);
+    }
+    const topCanais = Array.from(canalTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([c]) => c);
+
+    // Group by date
+    const dates = [...new Set(dailyByCanal.map((d) => d.date))].sort();
+    const data = dates.map((date) => {
+      const row: any = { date: date.slice(5) }; // MM-DD
+      for (const canal of topCanais) {
+        const entry = dailyByCanal.find((d) => d.date === date && d.canal === canal);
+        row[canal] = entry?.count || 0;
+      }
+      return row;
+    });
+
+    return { data, canais: topCanais };
+  }, [dailyByCanal]);
+
   if (isLoading) {
     return (
       <>
@@ -112,35 +150,89 @@ export default function CanaisPage() {
 
       {/* 3-col layout: cards (2/3) + sidebar (1/3) */}
       <div className="p-6">
-        {/* Vendor filter */}
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-xs text-gray-500 uppercase tracking-wider">Responsavel:</span>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedVendor(undefined)}
-              className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
-                selectedVendor === undefined
-                  ? "bg-purple-600 text-white border border-white/10"
-                  : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
-              }`}
-            >
-              Todos
-            </button>
-            {vendorList.map((v) => (
+        {/* Pipeline + Vendor filters */}
+        <div className="flex flex-col gap-3 mb-6">
+          {/* Pipeline filter */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Pipeline:</span>
+            <div className="flex gap-2 flex-wrap">
+              {PIPELINES.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setSelectedPipeline(p.id)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                    selectedPipeline === p.id
+                      ? "bg-blue-600 text-white border border-white/10"
+                      : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Vendor filter */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Responsavel:</span>
+            <div className="flex gap-2 flex-wrap">
               <button
-                key={v.responsible_user_id}
-                onClick={() => setSelectedVendor(v.responsible_user_id)}
+                onClick={() => setSelectedVendor(undefined)}
                 className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
-                  selectedVendor === v.responsible_user_id
+                  selectedVendor === undefined
                     ? "bg-purple-600 text-white border border-white/10"
                     : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
                 }`}
               >
-                {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+                Todos
               </button>
-            ))}
+              {vendorList.map((v) => (
+                <button
+                  key={v.responsible_user_id}
+                  onClick={() => setSelectedVendor(v.responsible_user_id)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                    selectedVendor === v.responsible_user_id
+                      ? "bg-purple-600 text-white border border-white/10"
+                      : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                  }`}
+                >
+                  {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* ── Area chart: Leads por canal por dia ── */}
+        {areaChartData.data.length > 0 && (
+          <section className="mb-6 rounded-xl border border-white/5 p-5" style={{ backgroundColor: CARD_BG }}>
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-sm font-semibold text-white">Leads por Canal por Dia</h3>
+              <InfoTooltip text="Série temporal dos top 4 canais com mais leads no período selecionado." />
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={areaChartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} />
+                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
+                />
+                {areaChartData.canais.map((canal, i) => (
+                  <Area
+                    key={canal}
+                    type="monotone"
+                    dataKey={canal}
+                    stackId="1"
+                    stroke={AREA_COLORS[i % AREA_COLORS.length]}
+                    fill={AREA_COLORS[i % AREA_COLORS.length]}
+                    fillOpacity={0.3}
+                  />
+                ))}
+              </AreaChart>
+            </ResponsiveContainer>
+          </section>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Left: Channel Cards Grid ── */}

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { usePerdasData } from "@/hooks/useMetrics";
+import { usePerdasData, usePerdasPorEtapa, usePerdasByOrigin, usePerdasLeadsQuentes } from "@/hooks/useMetrics";
 import type { DashboardPerdas } from "@/types/database";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 
@@ -214,6 +214,9 @@ function PipelineSection({
 export default function PerdasPage() {
   const { periodo } = useDateFilter();
   const { data: perdas, isLoading } = usePerdasData(periodo);
+  const { data: perdasPorEtapa } = usePerdasPorEtapa(periodo);
+  const { data: perdasByOrigin } = usePerdasByOrigin(periodo);
+  const { data: perdasQuentes } = usePerdasLeadsQuentes(periodo);
   const [filterCanal, setFilterCanal] = useState<string | undefined>(undefined);
   const [filterVendor, setFilterVendor] = useState<string | undefined>(undefined);
   const currentData = perdas || [];
@@ -294,6 +297,244 @@ export default function PerdasPage() {
             : <EmptyState title="Perdas — Teste Implantacao" />
           }
         </div>
+
+        {/* Perdas por Etapa — using last_active_stage */}
+        {perdasPorEtapa && perdasPorEtapa.length > 0 && (
+          <div className="mt-5">
+            <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+              Perdas por Etapa
+              <InfoTooltip text="Mostra em qual etapa do funil o lead estava antes de ser perdido. Dados populados a partir das proximas sincronizacoes." />
+            </h2>
+            <div
+              className="rounded-lg border border-gray-800 overflow-hidden"
+              style={{ backgroundColor: CARD_BG }}
+            >
+              <div className="overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
+                <table className="w-full text-xs" style={{ tableLayout: "auto" }}>
+                  <thead className="uppercase text-[9px] text-gray-500 font-semibold" style={{ backgroundColor: CARD_BG }}>
+                    <tr>
+                      <th className="px-3 py-2.5 text-left">Etapa</th>
+                      <th className="px-2 py-2.5 text-right">Total</th>
+                      <th className="px-3 py-2.5 text-left">Principais Motivos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                    {perdasPorEtapa.map((etapa) => (
+                      <tr key={etapa.stage} className="hover:bg-white/5 transition-colors">
+                        <td className="px-3 py-2 font-medium text-white">{etapa.stage}</td>
+                        <td className="px-2 py-2 text-right font-bold" style={{ color: ACCENT }}>{etapa.count}</td>
+                        <td className="px-3 py-2 text-gray-400">
+                          {etapa.motivos.slice(0, 3).map((m, i) => (
+                            <span key={m.motivo}>
+                              {m.motivo} ({m.count}){i < Math.min(etapa.motivos.length, 3) - 1 ? " · " : ""}
+                            </span>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* D1: Comparativo de Perdas por Origem */}
+        {perdasByOrigin && perdasByOrigin.length > 0 && (
+          <div className="mt-5">
+            <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+              Comparativo de Perdas por Origem
+              <InfoTooltip text="Compara motivos de perda segmentados pela origem do lead: Bot/IA, SDR (transferido de outro pipeline), ou Direto (entrou direto no pipeline)." />
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {perdasByOrigin.map((origin) => {
+                const maxMotivo = origin.motivos[0]?.count || 1;
+                return (
+                  <div
+                    key={origin.origin}
+                    className="rounded-lg border border-gray-800 p-4"
+                    style={{ backgroundColor: CARD_BG }}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-white">{origin.origin}</h3>
+                      <span className="text-lg font-bold" style={{ color: ACCENT }}>
+                        {origin.total_lost}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {origin.motivos.slice(0, 5).map((m) => (
+                        <HBarRow key={m.motivo} label={m.motivo} value={m.count} max={maxMotivo} />
+                      ))}
+                      {origin.motivos.length === 0 && (
+                        <p className="text-xs text-gray-600 text-center py-2">Sem motivos registrados</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* K1: Perdas por Canal */}
+        {filtered.length > 0 && (() => {
+          const byCanal = new Map<string, { total: number; motivos: Map<string, number> }>();
+          for (const p of filtered) {
+            const canal = p.canal_venda || "Sem canal";
+            if (!byCanal.has(canal)) byCanal.set(canal, { total: 0, motivos: new Map() });
+            const entry = byCanal.get(canal)!;
+            entry.total += p.quantidade;
+            const m = p.motivo_perda || "Sem motivo";
+            entry.motivos.set(m, (entry.motivos.get(m) || 0) + p.quantidade);
+          }
+          const canaisRanked = Array.from(byCanal.entries())
+            .map(([canal, data]) => ({
+              canal,
+              total: data.total,
+              motivos: Array.from(data.motivos.entries())
+                .map(([motivo, count]) => ({ motivo, count }))
+                .sort((a, b) => b.count - a.count),
+            }))
+            .sort((a, b) => b.total - a.total);
+
+          if (canaisRanked.length <= 1) return null;
+
+          return (
+            <div className="mt-5">
+              <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+                Perdas por Canal
+                <InfoTooltip text="Motivos de perda segmentados por canal de venda. Mostra os principais motivos de cada canal." />
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {canaisRanked.slice(0, 6).map((c) => {
+                  const maxMotivo = c.motivos[0]?.count || 1;
+                  return (
+                    <div
+                      key={c.canal}
+                      className="rounded-lg border border-gray-800 p-4"
+                      style={{ backgroundColor: CARD_BG }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-white truncate">{c.canal}</h3>
+                        <span className="text-lg font-bold shrink-0 ml-2" style={{ color: ACCENT }}>
+                          {c.total}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {c.motivos.slice(0, 5).map((m) => (
+                          <HBarRow key={m.motivo} label={m.motivo} value={m.count} max={maxMotivo} />
+                        ))}
+                        {c.motivos.length === 0 && (
+                          <p className="text-xs text-gray-600 text-center py-2">Sem motivos registrados</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* K2: Perdas por Vendedor */}
+        {filtered.length > 0 && (() => {
+          const byVendor = new Map<string, { total: number; motivos: Map<string, number> }>();
+          for (const p of filtered) {
+            const vendor = p.responsible_user_name || "Sem responsável";
+            if (!byVendor.has(vendor)) byVendor.set(vendor, { total: 0, motivos: new Map() });
+            const entry = byVendor.get(vendor)!;
+            entry.total += p.quantidade;
+            const m = p.motivo_perda || "Sem motivo";
+            entry.motivos.set(m, (entry.motivos.get(m) || 0) + p.quantidade);
+          }
+          const vendorsRanked = Array.from(byVendor.entries())
+            .map(([vendor, data]) => ({
+              vendor,
+              total: data.total,
+              topMotivos: Array.from(data.motivos.entries())
+                .map(([motivo, count]) => ({ motivo, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 3),
+            }))
+            .sort((a, b) => b.total - a.total);
+
+          if (vendorsRanked.length <= 1) return null;
+
+          const totalGeral = vendorsRanked.reduce((s, v) => s + v.total, 0);
+
+          return (
+            <div className="mt-5">
+              <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+                Perdas por Vendedor
+                <InfoTooltip text="Total de leads perdidos e principais motivos de perda por vendedor." />
+              </h2>
+              <div
+                className="rounded-lg border border-gray-800 overflow-hidden"
+                style={{ backgroundColor: CARD_BG }}
+              >
+                <div className="overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
+                  <table className="w-full text-xs" style={{ tableLayout: "auto" }}>
+                    <thead className="uppercase text-[9px] text-gray-500 font-semibold" style={{ backgroundColor: CARD_BG }}>
+                      <tr>
+                        <th className="px-3 py-2.5 text-left">Vendedor</th>
+                        <th className="px-2 py-2.5 text-right">Total</th>
+                        <th className="px-2 py-2.5 text-right">%</th>
+                        <th className="px-3 py-2.5 text-left">Principais Motivos</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                      {vendorsRanked.map((v) => (
+                        <tr key={v.vendor} className="hover:bg-white/5 transition-colors">
+                          <td className="px-3 py-2 font-medium text-white">{v.vendor}</td>
+                          <td className="px-2 py-2 text-right font-bold" style={{ color: ACCENT }}>{v.total}</td>
+                          <td className="px-2 py-2 text-right text-gray-400">
+                            {totalGeral > 0 ? ((v.total / totalGeral) * 100).toFixed(1) : "0"}%
+                          </td>
+                          <td className="px-3 py-2 text-gray-400">
+                            {v.topMotivos.map((m, i) => (
+                              <span key={m.motivo}>
+                                {m.motivo} ({m.count}){i < v.topMotivos.length - 1 ? " · " : ""}
+                              </span>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* F: Perdas em Leads Quentes */}
+        {perdasQuentes && perdasQuentes.length > 0 && (
+          <div className="mt-5">
+            <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+              Perdas em Leads Quentes
+              <InfoTooltip text="Motivos de perda dos leads com temperatura 'quente'. Estes são os leads mais promissores que foram perdidos." />
+            </h2>
+            <div
+              className="rounded-lg border border-red-800/30 p-4"
+              style={{ backgroundColor: "rgba(220,38,38,0.05)" }}
+            >
+              {(() => {
+                const maxBar = perdasQuentes[0]?.count || 1;
+                const total = perdasQuentes.reduce((s, m) => s + m.count, 0);
+                return (
+                  <>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Total: <span className="text-red-400 font-bold">{total}</span> leads quentes perdidos
+                    </p>
+                    {perdasQuentes.slice(0, 8).map((m) => (
+                      <HBarRow key={m.motivo} label={m.motivo} value={m.count} max={maxBar} />
+                    ))}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

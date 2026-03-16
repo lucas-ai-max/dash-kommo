@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     console.log("[sync-leads] Reference data loaded");
     console.log(
-      `[sync-leads] Custom fields: canal=${customFieldIds.canal_venda_id}, pre=${customFieldIds.pre_atendimento_id}`
+      `[sync-leads] Custom fields: canal=${customFieldIds.canal_venda_id}, pre=${customFieldIds.pre_atendimento_id}, temperatura=${customFieldIds.temperatura_id}`
     );
 
     const PIPELINES_TO_SYNC = [9968344, 13215396, 11480160];
@@ -70,12 +70,38 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-leads] Total fetched ${allLeads.length} leads across all pipelines`);
 
+    // Fetch existing DB records to detect stage transitions (for last_active_stage)
+    const allKommoIds = allLeads.map((l) => l.id);
+    const existingLeadsMap = new Map<number, { status_name: string | null; is_active: boolean; last_active_stage: string | null; pipeline_id: number | null; pipeline_name: string | null; origin_pipeline_id: number | null; origin_pipeline_name: string | null }>();
+    for (let i = 0; i < allKommoIds.length; i += 500) {
+      const batch = allKommoIds.slice(i, i + 500);
+      const { data: dbRows } = await supabaseAdmin
+        .from("dashboard_leads")
+        .select("kommo_lead_id, status_name, is_active, last_active_stage, pipeline_id, pipeline_name, origin_pipeline_id, origin_pipeline_name")
+        .in("kommo_lead_id", batch);
+      if (dbRows) {
+        for (const row of dbRows) {
+          existingLeadsMap.set(row.kommo_lead_id, {
+            status_name: row.status_name,
+            is_active: row.is_active,
+            last_active_stage: row.last_active_stage,
+            pipeline_id: row.pipeline_id,
+            pipeline_name: row.pipeline_name,
+            origin_pipeline_id: row.origin_pipeline_id,
+            origin_pipeline_name: row.origin_pipeline_name,
+          });
+        }
+      }
+    }
+    console.log(`[sync-leads] Loaded ${existingLeadsMap.size} existing DB records for stage tracking`);
+
     const processedLeads: DashboardLead[] = allLeads.map((lead: KommoLead) => {
       const canal = extractCustomField(lead, customFieldIds.canal_venda_id);
       const preAtendimento = extractCustomField(
         lead,
         customFieldIds.pre_atendimento_id
       );
+      const temperatura = extractCustomField(lead, customFieldIds.temperatura_id);
 
       const isWon = lead.status_id === 142;
       const isLost = lead.status_id === 143;
@@ -98,6 +124,36 @@ export async function GET(request: NextRequest) {
         lead.closed_at && lead.created_at
           ? Number(((lead.closed_at - lead.created_at) / 86400).toFixed(1))
           : null;
+
+      // Determine last_active_stage: preserve the stage the lead was in before closing
+      let lastActiveStage: string | null = null;
+      const existing = existingLeadsMap.get(lead.id);
+      if (isWon || isLost) {
+        if (existing?.last_active_stage) {
+          // Already had a last_active_stage saved — preserve it
+          lastActiveStage = existing.last_active_stage;
+        } else if (existing?.is_active && existing?.status_name) {
+          // Lead was active in DB but is now closed — save its previous stage
+          lastActiveStage = existing.status_name;
+        }
+        // If no existing record (new closed lead), lastActiveStage stays null
+      }
+
+      // Track origin pipeline: when a lead moves from one pipeline to another,
+      // preserve the original pipeline (e.g., SDR → Vendedores)
+      let originPipelineId: number | null = null;
+      let originPipelineName: string | null = null;
+      if (existing) {
+        if (existing.origin_pipeline_id) {
+          // Already has an origin — preserve it
+          originPipelineId = existing.origin_pipeline_id;
+          originPipelineName = existing.origin_pipeline_name;
+        } else if (existing.pipeline_id && existing.pipeline_id !== lead.pipeline_id) {
+          // Lead changed pipeline — save the old one as origin
+          originPipelineId = existing.pipeline_id;
+          originPipelineName = existing.pipeline_name;
+        }
+      }
 
       return {
         kommo_lead_id: lead.id,
@@ -124,6 +180,10 @@ export async function GET(request: NextRequest) {
         ciclo_dias: cicloDias,
         tempo_primeiro_atendimento_min: null,
         qtd_followups: 0,
+        last_active_stage: lastActiveStage,
+        temperatura,
+        origin_pipeline_id: originPipelineId,
+        origin_pipeline_name: originPipelineName,
         synced_at: new Date().toISOString(),
       };
     });
@@ -261,6 +321,18 @@ export async function GET(request: NextRequest) {
       console.log("[sync-leads] Metrics calculated successfully");
     } catch (e) {
       console.error("[sync-leads] Failed to trigger metrics:", e);
+    }
+
+    // Auto-trigger events sync (response times, stage durations, follow-ups)
+    console.log("[sync-leads] Triggering sync-events...");
+    try {
+      const baseUrl = request.nextUrl.origin;
+      fetch(`${baseUrl}/api/cron/sync-events`, {
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }); // Fire-and-forget — don't await to avoid timeout
+      console.log("[sync-leads] sync-events triggered (fire-and-forget)");
+    } catch (e) {
+      console.error("[sync-leads] Failed to trigger sync-events:", e);
     }
 
     return NextResponse.json({

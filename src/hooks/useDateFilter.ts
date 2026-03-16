@@ -3,11 +3,18 @@
 import { createContext, useContext } from "react";
 import type { Periodo } from "@/types/metrics";
 
+export interface DateRange {
+  from: string;
+  to: string;
+}
+
 interface DateFilterContextType {
   periodo: Periodo;
   setPeriodo: (p: Periodo) => void;
   periodoLabel: string;
   periodoQuery: string;
+  dateRange: DateRange | null;
+  setDateRange: (r: DateRange | null) => void;
 }
 
 export const DateFilterContext = createContext<DateFilterContextType>({
@@ -15,6 +22,8 @@ export const DateFilterContext = createContext<DateFilterContextType>({
   setPeriodo: () => {},
   periodoLabel: "Mês atual",
   periodoQuery: "mensal",
+  dateRange: null,
+  setDateRange: () => {},
 });
 
 export function useDateFilter() {

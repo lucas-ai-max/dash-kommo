@@ -12,8 +12,14 @@ import {
   useVendedorMetrics,
   useFunilData,
   useDailyLeadCounts,
+  useTemperaturaDistribution,
+  useTemperaturaByVendor,
+  useLeadsNegociacoesQuentes,
+  useTemperaturaByCanal,
+  useLeadsQuentesByVendorByDay,
+  useQuentesByOrigin,
 } from "@/hooks/useMetrics";
-import { Users, Percent, CreditCard, DollarSign, ChevronRight, Clock } from "lucide-react";
+import { Users, Percent, CreditCard, DollarSign, ChevronRight, Clock, Flame } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const EXCLUDED_VENDORS = ["Velocity Digital Company", "Eryck Henrique Matos"];
@@ -52,6 +58,12 @@ export default function OverviewPage() {
   const { data: funilVendedores } = useFunilData(periodo, 9968344);
   const { data: funilTeste } = useFunilData(periodo, 13215396);
   const { data: dailyLeads } = useDailyLeadCounts(periodo, selectedPipeline);
+  const { data: tempDist } = useTemperaturaDistribution(periodo);
+  const { data: tempByVendor } = useTemperaturaByVendor(periodo);
+  const { data: tempByCanal } = useTemperaturaByCanal(periodo);
+  const { data: quentesByVendorDay } = useLeadsQuentesByVendorByDay(periodo);
+  const { data: quentesByOrigin } = useQuentesByOrigin(periodo);
+  const { data: leadsEmPotencial } = useLeadsNegociacoesQuentes();
 
   const chartData = (dailyLeads || []).map((d) => ({
     date: new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
@@ -88,7 +100,7 @@ export default function OverviewPage() {
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
 
         {/* KPI Cards Grid — 4 cols, glow variant */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6">
           <KPICard
             label="Total de Leads"
             value={metrics?.total_leads ?? 0}
@@ -153,6 +165,20 @@ export default function OverviewPage() {
             color="orange"
             variant="glow"
             tooltip="Tempo médio em dias entre criação e fechamento dos leads ganhos."
+          />
+          <KPICard
+            label="Conv. Potenciais"
+            value={
+              leadsEmPotencial?.taxa_conversao != null
+                ? `${leadsEmPotencial.taxa_conversao}`
+                : "—"
+            }
+            suffix="%"
+            loading={!leadsEmPotencial}
+            icon={<Flame className="h-6 w-6" />}
+            color="orange"
+            variant="glow"
+            tooltip={`Taxa de conversão dos leads em Negociações Quentes (pipeline Vendedores). ${leadsEmPotencial ? `Total: ${leadsEmPotencial.total} | Ganhos: ${leadsEmPotencial.won} | Perdidos: ${leadsEmPotencial.lost} | Ativos: ${leadsEmPotencial.ativos}` : ''}`}
           />
         </section>
 
@@ -315,6 +341,196 @@ export default function OverviewPage() {
             <ChannelBarChart data={canais || []} />
           </div>
         </section>
+
+        {/* Row 4: Temperatura de Leads */}
+        {tempDist && tempDist.length > 0 ? (
+          <>
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Donut-style summary */}
+            <div className="rounded-2xl border border-white/5 p-6" style={{ backgroundColor: "#1b1e2b" }}>
+              <h3 className="text-sm font-semibold text-white mb-4">Temperatura de Leads</h3>
+              <div className="space-y-3">
+                {tempDist.map((t) => {
+                  const total = tempDist.reduce((s, d) => s + d.count, 0);
+                  const pct = total > 0 ? Math.round((t.count / total) * 100) : 0;
+                  const color = t.temperatura.toLowerCase().includes("quente")
+                    ? "#ef4444"
+                    : t.temperatura.toLowerCase().includes("frio")
+                    ? "#3b82f6"
+                    : "#f59e0b";
+                  return (
+                    <div key={t.temperatura}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-300 capitalize">{t.temperatura}</span>
+                        <span className="text-gray-400 font-mono">{t.count} ({pct}%)</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: color }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-0.5">
+                        Conversão: {t.taxa_conversao}% ({t.won} ganhos / {t.won + t.lost} fechados)
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* By vendor table */}
+            <div className="lg:col-span-2 rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
+              <div className="px-5 py-4 border-b border-white/5">
+                <h3 className="text-sm font-semibold text-white">Temperatura por Vendedor</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-widest text-gray-600 border-b border-white/5">
+                      <th className="px-4 py-2.5 text-left">Vendedor</th>
+                      <th className="px-3 py-2.5 text-right">Quente</th>
+                      <th className="px-3 py-2.5 text-right">Médio</th>
+                      <th className="px-3 py-2.5 text-right">Frio</th>
+                      <th className="px-3 py-2.5 text-right">Total</th>
+                      <th className="px-3 py-2.5 text-right">% Quente</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(tempByVendor || []).map((v) => (
+                      <tr key={v.responsible_user_name} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-2.5 text-gray-200 font-medium">{v.responsible_user_name}</td>
+                        <td className="px-3 py-2.5 text-right text-red-400 font-mono">{v.quente}</td>
+                        <td className="px-3 py-2.5 text-right text-yellow-400 font-mono">{v.medio}</td>
+                        <td className="px-3 py-2.5 text-right text-blue-400 font-mono">{v.frio}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-300 font-mono">{v.total}</td>
+                        <td className="px-3 py-2.5 text-right font-mono">
+                          <span className={v.total > 0 && (v.quente / v.total) >= 0.3 ? "text-red-400 font-bold" : "text-gray-400"}>
+                            {v.total > 0 ? Math.round((v.quente / v.total) * 100) : 0}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          {/* H1: Temperatura por Canal */}
+          {tempByCanal && tempByCanal.length > 0 && (
+            <section className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
+              <div className="px-5 py-4 border-b border-white/5">
+                <h3 className="text-sm font-semibold text-white">Temperatura por Canal</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-widest text-gray-600 border-b border-white/5">
+                      <th className="px-4 py-2.5 text-left">Canal</th>
+                      <th className="px-3 py-2.5 text-right">Quente</th>
+                      <th className="px-3 py-2.5 text-right">Médio</th>
+                      <th className="px-3 py-2.5 text-right">Frio</th>
+                      <th className="px-3 py-2.5 text-right">Total</th>
+                      <th className="px-3 py-2.5 text-right">% Quente</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {tempByCanal.map((c) => (
+                      <tr key={c.canal_venda} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-2.5 text-gray-200 font-medium">{c.canal_venda}</td>
+                        <td className="px-3 py-2.5 text-right text-red-400 font-mono">{c.quente}</td>
+                        <td className="px-3 py-2.5 text-right text-yellow-400 font-mono">{c.medio}</td>
+                        <td className="px-3 py-2.5 text-right text-blue-400 font-mono">{c.frio}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-300 font-mono">{c.total}</td>
+                        <td className="px-3 py-2.5 text-right font-mono">
+                          <span className={c.total > 0 && (c.quente / c.total) >= 0.3 ? "text-red-400 font-bold" : "text-gray-400"}>
+                            {c.total > 0 ? Math.round((c.quente / c.total) * 100) : 0}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* H2 + H3: Leads Quentes por Vendedor/Dia + Quentes por Origem */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* H2: Leads quentes por vendedor por dia */}
+            {quentesByVendorDay && quentesByVendorDay.length > 0 && (
+              <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
+                <div className="px-5 py-4 border-b border-white/5">
+                  <h3 className="text-sm font-semibold text-white">Leads Quentes por Vendedor / Dia</h3>
+                </div>
+                <div className="overflow-y-auto" style={{ maxHeight: 280, scrollbarWidth: "thin" }}>
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0" style={{ backgroundColor: "#1b1e2b" }}>
+                      <tr className="text-[10px] uppercase tracking-widest text-gray-600 border-b border-white/5">
+                        <th className="px-4 py-2.5 text-left">Vendedor</th>
+                        <th className="px-3 py-2.5 text-left">Data</th>
+                        <th className="px-3 py-2.5 text-right">Leads Quentes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {quentesByVendorDay.slice(0, 30).map((r, i) => (
+                        <tr key={i} className="hover:bg-white/5 transition-colors">
+                          <td className="px-4 py-2 text-gray-200 font-medium">{r.responsible_user_name}</td>
+                          <td className="px-3 py-2 text-gray-400 font-mono">
+                            {new Date(r.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                          </td>
+                          <td className="px-3 py-2 text-right text-red-400 font-bold font-mono">{r.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* H3: % Leads quentes SDR Humano vs IA */}
+            {quentesByOrigin && quentesByOrigin.length > 0 && (
+              <div className="rounded-2xl border border-white/5 p-6" style={{ backgroundColor: "#1b1e2b" }}>
+                <h3 className="text-sm font-semibold text-white mb-4">Leads Quentes por Origem</h3>
+                <p className="text-xs text-gray-500 mb-4">Qual canal de entrada gera mais leads quentes?</p>
+                <div className="space-y-3">
+                  {quentesByOrigin.map((o) => {
+                    const color =
+                      o.origin.includes("Bot") ? "#8b5cf6"
+                      : o.origin.includes("SDR") ? "#3b82f6"
+                      : "#10b981";
+                    return (
+                      <div key={o.origin}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-300">{o.origin}</span>
+                          <span className="text-gray-400 font-mono">{o.count} ({o.pct}%)</span>
+                        </div>
+                        <div className="h-3 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.max(o.pct, 3)}%`, backgroundColor: color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-600 mt-4">
+                  Total de leads quentes: {quentesByOrigin.reduce((s, o) => s + o.count, 0)}
+                </p>
+              </div>
+            )}
+          </section>
+          </>
+        ) : (
+          <section className="rounded-2xl border border-amber-800/30 bg-amber-950/20 p-5">
+            <p className="text-sm text-amber-200 font-medium">Temperatura de Leads</p>
+            <p className="text-xs text-amber-300/70 mt-1">
+              Campo temperatura não encontrado nos leads. Crie um campo personalizado no Kommo com opções: frio, medio, quente.
+            </p>
+          </section>
+        )}
       </div>
     </>
   );

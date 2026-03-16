@@ -23,6 +23,10 @@ export interface DashboardLead {
   ciclo_dias: number | null;
   tempo_primeiro_atendimento_min: number | null;
   qtd_followups: number;
+  last_active_stage: string | null;
+  temperatura: string | null;
+  origin_pipeline_id: number | null;
+  origin_pipeline_name: string | null;
   synced_at: string;
   updated_at?: string;
 }
@@ -76,6 +80,7 @@ export interface DashboardMetricsVendedor {
   tempo_medio_primeiro_atendimento_min: number | null;
   meta_mensal: number | null;
   percentual_meta: number | null;
+  pct_bot: number | null;
   calculated_at?: string;
 }
 
@@ -140,6 +145,18 @@ export interface DashboardMeta {
   mes_referencia: string;
   meta_quantidade: number;
   meta_receita: number;
+}
+
+export interface DashboardStageDuration {
+  id?: number;
+  pipeline_id: number;
+  pipeline_name: string | null;
+  status_id: number;
+  status_name: string | null;
+  avg_duration_hours: number;
+  median_duration_hours: number;
+  sample_size: number;
+  calculated_at: string;
 }
 
 export interface DashboardSyncLog {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics, useSDRResponseTimeStats } from "@/hooks/useMetrics";
+import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics, useSDRResponseTimeStats, useSDRConversionStats, useBotConversionRate, useHumanoVsTransferido, useSDRStageResponseTime, useVendorStageResponseTime } from "@/hooks/useMetrics";
 import {
   AreaChart,
   Area,
@@ -105,6 +105,11 @@ export default function IAPage() {
   const { data: totalPerdidos = 0 } = useLeadsPerdidos(periodo);
   const { data: sdr, isLoading: sdrLoading } = useSDRMetrics(periodo);
   const { data: sdrResponseTime } = useSDRResponseTimeStats();
+  const { data: sdrConversion } = useSDRConversionStats(periodo);
+  const { data: botConversion } = useBotConversionRate(periodo);
+  const { data: humanoVsTransf } = useHumanoVsTransferido(periodo);
+  const { data: sdrStageRT } = useSDRStageResponseTime();
+  const { data: vendorStageRT } = useVendorStageResponseTime();
 
   const totalConversas = (iaData || []).reduce((s, d) => s + (d.total_conversas ?? 0), 0);
   const totalFinalizadas = (iaData || []).reduce((s, d) => s + (d.conversas_finalizadas ?? 0), 0);
@@ -323,6 +328,88 @@ export default function IAPage() {
             </ResponsiveContainer>
           </div>
         </section>
+
+        {/* Bot Conversion + Humano vs Transferido */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* C1: Taxa Conversão Bot */}
+          <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
+            <div className="flex items-center gap-1.5 mb-4">
+              <h3 className="text-sm font-semibold text-white">Taxa de Conversão do Bot</h3>
+              <InfoTooltip text="Leads originados via Bot (canal_venda ou pre_atendimento contém 'bot'). Taxa = ganhos ÷ (ganhos + perdidos)." />
+            </div>
+            {botConversion ? (
+              <div>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 mb-1">Total Bot</p>
+                    <span className="text-xl font-bold text-white">{botConversion.total_bot_leads}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 mb-1">Ganhos</p>
+                    <span className="text-xl font-bold text-green-400">{botConversion.bot_won}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 mb-1">Perdidos</p>
+                    <span className="text-xl font-bold text-red-400">{botConversion.bot_lost}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 mb-1">Conversão</p>
+                    <span className={`text-xl font-bold ${botConversion.taxa_conversao >= 20 ? "text-green-400" : botConversion.taxa_conversao >= 10 ? "text-yellow-400" : "text-red-400"}`}>
+                      {botConversion.taxa_conversao}%
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-gray-600">
+                  {botConversion.bot_active} leads ainda ativos
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                Sem leads identificados como Bot no período.
+              </p>
+            )}
+          </div>
+
+          {/* C2: Humano vs Transferido */}
+          <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
+            <div className="flex items-center gap-1.5 mb-4">
+              <h3 className="text-sm font-semibold text-white">Direto vs Transferido</h3>
+              <InfoTooltip text="Compara leads que entraram direto no pipeline (origin_pipeline_id = null) vs leads transferidos de outro pipeline (ex: SDR → Vendas)." />
+            </div>
+            {humanoVsTransf ? (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Direto */}
+                <div className="rounded-lg border border-blue-500/20 p-4 text-center" style={{ backgroundColor: "rgba(59,130,246,0.05)" }}>
+                  <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-2">Direto</p>
+                  <p className="text-2xl font-bold text-white">{humanoVsTransf.direto.total}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {humanoVsTransf.direto.won} ganhos · {humanoVsTransf.direto.lost} perdidos
+                  </p>
+                  <p className={`text-lg font-bold mt-2 ${humanoVsTransf.direto.taxa >= 20 ? "text-green-400" : humanoVsTransf.direto.taxa >= 10 ? "text-yellow-400" : "text-red-400"}`}>
+                    {humanoVsTransf.direto.taxa}%
+                  </p>
+                  <p className="text-[10px] text-gray-600">taxa conversão</p>
+                </div>
+                {/* Transferido */}
+                <div className="rounded-lg border border-purple-500/20 p-4 text-center" style={{ backgroundColor: "rgba(139,92,246,0.05)" }}>
+                  <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Transferido</p>
+                  <p className="text-2xl font-bold text-white">{humanoVsTransf.transferido.total}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {humanoVsTransf.transferido.won} ganhos · {humanoVsTransf.transferido.lost} perdidos
+                  </p>
+                  <p className={`text-lg font-bold mt-2 ${humanoVsTransf.transferido.taxa >= 20 ? "text-green-400" : humanoVsTransf.transferido.taxa >= 10 ? "text-yellow-400" : "text-red-400"}`}>
+                    {humanoVsTransf.transferido.taxa}%
+                  </p>
+                  <p className="text-[10px] text-gray-600">taxa conversão</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                Sem dados de comparativo no período.
+              </p>
+            )}
+          </div>
+        </section>
         </>}
 
         {/* SDR tab */}
@@ -489,6 +576,76 @@ export default function IAPage() {
                 )}
               </div>
 
+              {/* Tempo de Resposta por Marco de Etapa */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* SDR: Tempo na etapa "Ligar" */}
+                {sdrStageRT && (
+                  <div className="rounded-xl border border-purple-500/20 p-4" style={{ backgroundColor: "rgba(139,92,246,0.06)" }}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <p className="text-[10px] text-purple-400 uppercase tracking-widest font-semibold">Tempo SDR — Etapa "{sdrStageRT.stage_name}"</p>
+                      <InfoTooltip text="Tempo que o lead permanece na primeira etapa do pipeline SDR antes de ser avançado. Representa a velocidade do primeiro contato do SDR." />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold" style={{ color: sdrStageRT.median_hours <= 1 ? "#4ade80" : sdrStageRT.median_hours <= 4 ? "#fbbf24" : "#f87171" }}>
+                        {sdrStageRT.median_hours < 1
+                          ? `${Math.round(sdrStageRT.median_hours * 60)}`
+                          : sdrStageRT.median_hours < 24
+                          ? sdrStageRT.median_hours.toFixed(1)
+                          : (sdrStageRT.median_hours / 24).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {sdrStageRT.median_hours < 1 ? "min" : sdrStageRT.median_hours < 24 ? "h" : "d"} (mediana)
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      Média: {sdrStageRT.avg_hours < 1 ? `${Math.round(sdrStageRT.avg_hours * 60)}min` : sdrStageRT.avg_hours < 24 ? `${sdrStageRT.avg_hours.toFixed(1)}h` : `${(sdrStageRT.avg_hours / 24).toFixed(1)}d`} · Amostra: {sdrStageRT.sample_size}
+                    </p>
+                  </div>
+                )}
+
+                {/* Vendedor: Tempo na etapa TRANSFERENCIA */}
+                {vendorStageRT && (
+                  <div className="rounded-xl border border-blue-500/20 p-4" style={{ backgroundColor: "rgba(59,130,246,0.06)" }}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <p className="text-[10px] text-blue-400 uppercase tracking-widest font-semibold">Tempo Vendedor — Etapa "{vendorStageRT.stage_name}"</p>
+                      <InfoTooltip text="Tempo que o lead permanece na etapa de Transferência antes de ser assumido pelo vendedor. Meta: 10 minutos." />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold" style={{ color: vendorStageRT.median_hours <= (10/60) ? "#4ade80" : vendorStageRT.median_hours <= 1 ? "#fbbf24" : "#f87171" }}>
+                        {vendorStageRT.median_hours < 1
+                          ? `${Math.round(vendorStageRT.median_hours * 60)}`
+                          : vendorStageRT.median_hours < 24
+                          ? vendorStageRT.median_hours.toFixed(1)
+                          : (vendorStageRT.median_hours / 24).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {vendorStageRT.median_hours < 1 ? "min" : vendorStageRT.median_hours < 24 ? "h" : "d"} (mediana)
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex justify-between text-[10px] mb-0.5">
+                        <span className="text-gray-500">Meta: 10 min</span>
+                        <span className={vendorStageRT.median_hours <= (10/60) ? "text-green-400" : "text-red-400"}>
+                          {vendorStageRT.median_hours <= (10/60) ? "DENTRO" : "FORA"} da meta
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min((10/60) / Math.max(vendorStageRT.median_hours, 10/60) * 100, 100)}%`,
+                            backgroundColor: vendorStageRT.median_hours <= (10/60) ? "#4ade80" : "#f87171",
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      Média: {vendorStageRT.avg_hours < 1 ? `${Math.round(vendorStageRT.avg_hours * 60)}min` : vendorStageRT.avg_hours < 24 ? `${vendorStageRT.avg_hours.toFixed(1)}h` : `${(vendorStageRT.avg_hours / 24).toFixed(1)}d`} · Amostra: {vendorStageRT.sample_size}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Ciclo Comparativo: IA vs SDR */}
               <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: "#1F2937" }}>
                 <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Ciclo Medio Comparativo</p>
@@ -514,6 +671,54 @@ export default function IAPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Cross-pipeline: SDR → Vendas */}
+              <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: "#1F2937" }}>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1">
+                  Conversao SDR → Vendas
+                  <InfoTooltip text="Leads que originaram no pipeline SDR (Eryck) e foram transferidos para outros pipelines. Mostra a taxa de conversao real desses leads." />
+                </p>
+                {sdrConversion && sdrConversion.total_transferred > 0 ? (
+                  <>
+                    <div className="grid grid-cols-4 gap-3 mb-4">
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-500 mb-1">Transferidos</p>
+                        <span className="text-xl font-bold text-white">{sdrConversion.total_transferred}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-500 mb-1">Ganhos</p>
+                        <span className="text-xl font-bold text-green-400">{sdrConversion.won}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-500 mb-1">Perdidos</p>
+                        <span className="text-xl font-bold text-red-400">{sdrConversion.lost}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-500 mb-1">Conversao</p>
+                        <span className="text-xl font-bold text-blue-400">
+                          {sdrConversion.taxa_conversao != null ? `${sdrConversion.taxa_conversao}%` : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    {sdrConversion.by_destination.length > 0 && (
+                      <div className="border-t border-white/5 pt-3">
+                        <p className="text-[10px] text-gray-600 mb-2">Por pipeline de destino:</p>
+                        {sdrConversion.by_destination.map((d) => (
+                          <div key={d.pipeline_name} className="flex items-center justify-between text-xs text-gray-400 py-1">
+                            <span>{d.pipeline_name}</span>
+                            <span className="text-gray-300">{d.total} leads · {d.won} ganhos · {d.lost} perdidos</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 text-center">
+                    <p>Sem dados de cross-pipeline ainda.</p>
+                    <p className="text-[10px] mt-1 text-gray-600">O rastreamento de origem sera populado nas proximas sincronizacoes.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

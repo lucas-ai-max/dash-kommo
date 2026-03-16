@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import InfoTooltip from "@/components/ui/InfoTooltip";
-import { useFunilData, useLeadsHumanoSemProposta } from "@/hooks/useMetrics";
+import { useFunilData, useLeadsHumanoSemProposta, useStageDurations } from "@/hooks/useMetrics";
 import { useDateFilter } from "@/hooks/useDateFilter";
 
 const PIPELINES = [
@@ -54,6 +54,7 @@ export default function FunilPage() {
   const { periodo } = useDateFilter();
   const { data: funil, isLoading } = useFunilData(periodo, selectedPipelineId);
   const { data: humanoSemProposta, isLoading: loadingHumano } = useLeadsHumanoSemProposta();
+  const { data: stageDurations } = useStageDurations(selectedPipelineId);
 
   const stages = funil || [];
   const maxLeads = stages[0]?.leads_atual || 1;
@@ -207,6 +208,7 @@ export default function FunilPage() {
                     <tr className="text-[10px] border-b border-white/5 uppercase tracking-widest" style={{ backgroundColor: "rgba(255,255,255,0.01)", color: "#666" }}>
                       <th className="px-5 py-3 font-medium">Etapa</th>
                       <th className="px-5 py-3 font-medium text-right">Leads</th>
+                      <th className="px-5 py-3 font-medium text-right">Tempo</th>
                       <th className="px-5 py-3 font-medium text-right w-28">Conv.</th>
                     </tr>
                   </thead>
@@ -266,6 +268,18 @@ export default function FunilPage() {
                             >
                               {stage.leads_atual.toLocaleString("pt-BR")}
                             </span>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            {(() => {
+                              const sd = stageDurations?.find(
+                                (s) => s.status_name === stage.status_name && s.pipeline_id === selectedPipelineId
+                              );
+                              if (!sd) return <span style={{ color: "#444", fontSize: 10 }}>—</span>;
+                              const h = sd.median_duration_hours;
+                              const label = h < 1 ? `${Math.round(h * 60)}m` : h < 24 ? `${h.toFixed(1)}h` : `${(h / 24).toFixed(1)}d`;
+                              const clr = h > 48 ? "#f87171" : h > 12 ? "#fbbf24" : "#4ade80";
+                              return <span className="font-mono text-[10px] font-bold" style={{ color: clr }}>{label}</span>;
+                            })()}
                           </td>
                           <td className="px-5 py-3 text-right">
                             {passRate !== null ? (
