@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics, useSDRResponseTimeStats, useSDRConversionStats, useBotConversionRate, useHumanoVsTransferido, useSDRStageResponseTime, useVendorStageResponseTime } from "@/hooks/useMetrics";
+import { useIAMetrics, useIAResponseTimes, useLeadsPerdidos, useSDRMetrics, useSDRResponseTimeStats, useSDRConversionStats, useBotConversionRate, useHumanoVsTransferido, useSDRStageResponseTime, useVendorStageResponseTime, useIACycleTime, useSDRCycleToTransfer } from "@/hooks/useMetrics";
 import {
   AreaChart,
   Area,
@@ -104,12 +104,14 @@ export default function IAPage() {
   const { data: responseTimes } = useIAResponseTimes();
   const { data: totalPerdidos = 0 } = useLeadsPerdidos(periodo);
   const { data: sdr, isLoading: sdrLoading } = useSDRMetrics(periodo);
-  const { data: sdrResponseTime } = useSDRResponseTimeStats();
+  const { data: sdrResponseTime } = useSDRResponseTimeStats(periodo);
   const { data: sdrConversion } = useSDRConversionStats(periodo);
   const { data: botConversion } = useBotConversionRate(periodo);
   const { data: humanoVsTransf } = useHumanoVsTransferido(periodo);
   const { data: sdrStageRT } = useSDRStageResponseTime();
   const { data: vendorStageRT } = useVendorStageResponseTime();
+  const { data: iaCycleTime } = useIACycleTime(periodo);
+  const { data: sdrCycleToTransfer } = useSDRCycleToTransfer(periodo);
 
   const totalConversas = (iaData || []).reduce((s, d) => s + (d.total_conversas ?? 0), 0);
   const totalFinalizadas = (iaData || []).reduce((s, d) => s + (d.conversas_finalizadas ?? 0), 0);
@@ -210,13 +212,21 @@ export default function IAPage() {
             tooltip="Conversas finalizadas pelo bot e encaminhadas para um vendedor."
           />
           <KPICardIA
-            label="Tempo Médio Resposta"
-            value={responseTimes?.bot_seg != null ? responseTimes.bot_seg : "—"}
-            unit="seg"
+            label="Ciclo Médio com a IA"
+            value={iaCycleTime
+              ? iaCycleTime.median_hours < 1
+                ? `${Math.round(iaCycleTime.median_hours * 60)}`
+                : iaCycleTime.median_hours < 24
+                ? iaCycleTime.median_hours.toFixed(1)
+                : (iaCycleTime.median_hours / 24).toFixed(1)
+              : "—"}
+            unit={iaCycleTime
+              ? iaCycleTime.median_hours < 1 ? "min" : iaCycleTime.median_hours < 24 ? "h" : "d"
+              : ""}
             sparkData={stubSpark}
             sparkColor="#3b82f6"
             loading={isLoading}
-            tooltip="Tempo médio que o bot leva para responder, em segundos."
+            tooltip="Tempo mediano entre a criação do lead e a primeira atividade do vendedor (transferência da IA). Mostra quanto tempo o lead fica sendo tratado pela IA antes de ser passado para um humano."
           />
           <KPICardIA
             label="Taxa de Conversão IA"
@@ -304,7 +314,10 @@ export default function IAPage() {
             className="rounded-xl p-6 border border-gray-700"
             style={{ backgroundColor: PANEL_BG }}
           >
-            <h3 className="font-semibold text-white mb-4">Follow-ups por Nível</h3>
+            <div className="flex items-center gap-1.5 mb-4">
+              <h3 className="font-semibold text-white">Tentativas de Recontato da IA</h3>
+              <InfoTooltip text="Mensagens de follow-up automáticas enviadas pela IA quando o lead não responde. FUP 1 = 1ª tentativa de recontato, FUP 2 = 2ª tentativa, FUP 3 = 3ª e última tentativa antes de desistir." />
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={fupData} barSize={40}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(55,65,81,0.2)" />
@@ -335,7 +348,7 @@ export default function IAPage() {
           <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
             <div className="flex items-center gap-1.5 mb-4">
               <h3 className="text-sm font-semibold text-white">Taxa de Conversão do Bot</h3>
-              <InfoTooltip text="Leads originados via Bot (canal_venda ou pre_atendimento contém 'bot'). Taxa = ganhos ÷ (ganhos + perdidos)." />
+              <InfoTooltip text="Leads que entraram via Bot/IA e foram ganhos (vendidos). Identifica leads onde o canal de venda ou pré-atendimento indica origem automatizada. Taxa = ganhos ÷ (ganhos + perdidos)." />
             </div>
             {botConversion ? (
               <div>
@@ -373,14 +386,14 @@ export default function IAPage() {
           {/* C2: Humano vs Transferido */}
           <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
             <div className="flex items-center gap-1.5 mb-4">
-              <h3 className="text-sm font-semibold text-white">Direto vs Transferido</h3>
-              <InfoTooltip text="Compara leads que entraram direto no pipeline (origin_pipeline_id = null) vs leads transferidos de outro pipeline (ex: SDR → Vendas)." />
+              <h3 className="text-sm font-semibold text-white">Entrada Direta vs Transferido de Outro Pipeline</h3>
+              <InfoTooltip text="'Entrada Direta' = lead criado diretamente no funil de vendas (sem passar por SDR ou IA). 'Transferido' = lead que veio de outro pipeline (ex: SDR Eryck transferiu para Vendas, ou IA transferiu automaticamente). Compara taxa de conversão de cada grupo." />
             </div>
             {humanoVsTransf ? (
               <div className="grid grid-cols-2 gap-4">
                 {/* Direto */}
                 <div className="rounded-lg border border-blue-500/20 p-4 text-center" style={{ backgroundColor: "rgba(59,130,246,0.05)" }}>
-                  <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-2">Direto</p>
+                  <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-2">Entrada Direta</p>
                   <p className="text-2xl font-bold text-white">{humanoVsTransf.direto.total}</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {humanoVsTransf.direto.won} ganhos · {humanoVsTransf.direto.lost} perdidos
@@ -392,7 +405,7 @@ export default function IAPage() {
                 </div>
                 {/* Transferido */}
                 <div className="rounded-lg border border-purple-500/20 p-4 text-center" style={{ backgroundColor: "rgba(139,92,246,0.05)" }}>
-                  <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Transferido</p>
+                  <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Transferido (SDR/IA)</p>
                   <p className="text-2xl font-bold text-white">{humanoVsTransf.transferido.total}</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {humanoVsTransf.transferido.won} ganhos · {humanoVsTransf.transferido.lost} perdidos
@@ -511,11 +524,34 @@ export default function IAPage() {
                 )}
               </div>
 
+              {/* Ciclo até transferência */}
+              {sdrCycleToTransfer && (
+                <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: PANEL_BG }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <p className="text-xs text-gray-500 uppercase tracking-widest">Ciclo Médio até Transferência</p>
+                    <InfoTooltip text="Tempo mediano entre a criação do lead no pipeline SDR e o encerramento (transferência para vendedor). Diferente do ciclo de encerramento que inclui todos os leads." />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-white">
+                      {sdrCycleToTransfer.median_hours < 1
+                        ? `${Math.round(sdrCycleToTransfer.median_hours * 60)}`
+                        : sdrCycleToTransfer.median_hours < 24
+                        ? sdrCycleToTransfer.median_hours.toFixed(1)
+                        : (sdrCycleToTransfer.median_hours / 24).toFixed(1)}
+                    </span>
+                    <span className="text-xl text-gray-500">
+                      {sdrCycleToTransfer.median_hours < 1 ? "min" : sdrCycleToTransfer.median_hours < 24 ? "h" : "d"}
+                    </span>
+                    <span className="text-xs text-gray-600 ml-2">mediana · {sdrCycleToTransfer.sample_size} leads</span>
+                  </div>
+                </div>
+              )}
+
               {/* Insight tempo de resposta (dynamic) */}
               <div className="rounded-xl border border-purple-500/20 p-5" style={{ backgroundColor: "rgba(139,92,246,0.06)" }}>
                 <div className="flex items-center gap-1.5 mb-3">
-                  <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Tempo de Resposta</p>
-                  <InfoTooltip text="Tempo entre a criacao do lead e o primeiro contato do Eryck. Calculado com base nos leads fechados do pipeline SDR." />
+                  <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Tempo de 1ª Resposta do SDR</p>
+                  <InfoTooltip text="Tempo entre a criação do lead e o PRIMEIRO contato do Eryck (1ª resposta apenas, não todas as mensagens). Calculado com base nos leads fechados do pipeline SDR." />
                 </div>
                 {sdrResponseTime && sdrResponseTime.sample_size > 0 ? (
                   <div className="space-y-2.5 text-sm">
@@ -556,7 +592,7 @@ export default function IAPage() {
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="text-gray-300">P90 (percentil 90)</span>
-                        <p className="text-[11px] text-gray-500">90% dos leads sao respondidos ate esse prazo</p>
+                        <p className="text-[11px] text-gray-500">90% dos leads recebem a 1ª resposta em até esse tempo. Apenas 10% demoram mais.</p>
                       </div>
                       <span className="text-yellow-400 font-mono font-bold text-base ml-4 shrink-0">
                         {sdrResponseTime.p90_h != null
@@ -583,7 +619,7 @@ export default function IAPage() {
                   <div className="rounded-xl border border-purple-500/20 p-4" style={{ backgroundColor: "rgba(139,92,246,0.06)" }}>
                     <div className="flex items-center gap-1.5 mb-2">
                       <p className="text-[10px] text-purple-400 uppercase tracking-widest font-semibold">Tempo SDR — Etapa "{sdrStageRT.stage_name}"</p>
-                      <InfoTooltip text="Tempo que o lead permanece na primeira etapa do pipeline SDR antes de ser avançado. Representa a velocidade do primeiro contato do SDR." />
+                      <InfoTooltip text="Tempo que o lead permanece na primeira etapa do pipeline SDR antes de ser avançado. Representa a velocidade do primeiro contato do SDR. Baseado nos últimos 90 dias de dados." />
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold" style={{ color: sdrStageRT.median_hours <= 1 ? "#4ade80" : sdrStageRT.median_hours <= 4 ? "#fbbf24" : "#f87171" }}>
@@ -608,7 +644,7 @@ export default function IAPage() {
                   <div className="rounded-xl border border-blue-500/20 p-4" style={{ backgroundColor: "rgba(59,130,246,0.06)" }}>
                     <div className="flex items-center gap-1.5 mb-2">
                       <p className="text-[10px] text-blue-400 uppercase tracking-widest font-semibold">Tempo Vendedor — Etapa "{vendorStageRT.stage_name}"</p>
-                      <InfoTooltip text="Tempo que o lead permanece na etapa de Transferência antes de ser assumido pelo vendedor. Meta: 10 minutos." />
+                      <InfoTooltip text="Tempo que o lead permanece na etapa de Transferência antes de ser assumido pelo vendedor. Meta: 10 minutos. Baseado nos últimos 90 dias de dados." />
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold" style={{ color: vendorStageRT.median_hours <= (10/60) ? "#4ade80" : vendorStageRT.median_hours <= 1 ? "#fbbf24" : "#f87171" }}>
@@ -646,29 +682,44 @@ export default function IAPage() {
                 )}
               </div>
 
-              {/* Ciclo Comparativo: IA vs SDR */}
+              {/* Ciclo Comparativo: IA vs SDR (até transferência) */}
               <div className="rounded-xl border border-white/5 p-5" style={{ backgroundColor: "#1F2937" }}>
-                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Ciclo Medio Comparativo</p>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <p className="text-xs text-gray-500 uppercase tracking-widest">Ciclo até Transferência</p>
+                  <InfoTooltip text="Tempo mediano entre a criação do lead e a transferência para o vendedor. IA = tempo que o bot leva para processar e transferir. SDR = tempo que o Eryck leva para qualificar e transferir." />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-1">IA (Bot)</p>
                     <span className="text-2xl font-bold text-white">
-                      {responseTimes?.humano_min != null ? `${responseTimes.humano_min}` : "—"}
+                      {iaCycleTime
+                        ? iaCycleTime.median_hours < 1
+                          ? `${Math.round(iaCycleTime.median_hours * 60)}`
+                          : iaCycleTime.median_hours < 24
+                          ? iaCycleTime.median_hours.toFixed(1)
+                          : (iaCycleTime.median_hours / 24).toFixed(1)
+                        : "—"}
                     </span>
-                    <span className="text-sm text-gray-500 ml-1">min</span>
+                    <span className="text-sm text-gray-500 ml-1">
+                      {iaCycleTime ? (iaCycleTime.median_hours < 1 ? "min" : iaCycleTime.median_hours < 24 ? "h" : "d") : ""}
+                    </span>
+                    {iaCycleTime && <p className="text-[10px] text-gray-600 mt-0.5">{iaCycleTime.sample_size} leads</p>}
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-1">SDR (Eryck)</p>
                     <span className="text-2xl font-bold text-white">
-                      {sdr?.ciclo_medio_h != null
-                        ? sdr.ciclo_medio_h < 24
-                          ? sdr.ciclo_medio_h.toFixed(1)
-                          : (sdr.ciclo_medio_h / 24).toFixed(1)
+                      {sdrCycleToTransfer
+                        ? sdrCycleToTransfer.median_hours < 1
+                          ? `${Math.round(sdrCycleToTransfer.median_hours * 60)}`
+                          : sdrCycleToTransfer.median_hours < 24
+                          ? sdrCycleToTransfer.median_hours.toFixed(1)
+                          : (sdrCycleToTransfer.median_hours / 24).toFixed(1)
                         : "—"}
                     </span>
                     <span className="text-sm text-gray-500 ml-1">
-                      {sdr?.ciclo_medio_h != null ? (sdr.ciclo_medio_h < 24 ? "h" : "d") : ""}
+                      {sdrCycleToTransfer ? (sdrCycleToTransfer.median_hours < 1 ? "min" : sdrCycleToTransfer.median_hours < 24 ? "h" : "d") : ""}
                     </span>
+                    {sdrCycleToTransfer && <p className="text-[10px] text-gray-600 mt-0.5">{sdrCycleToTransfer.sample_size} leads</p>}
                   </div>
                 </div>
               </div>

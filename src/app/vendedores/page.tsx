@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import Header from "@/components/layout/Header";
 import VendorRankingTable from "@/components/tables/VendorRankingTable";
@@ -142,16 +142,22 @@ export default function VendedoresPage() {
   const { data: vendorResponseTimes } = useVendorResponseTimes(periodo);
   const { data: stageDurations } = useStageDurations();
   const { data: propostaStats } = usePropostaStats(periodo);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | undefined>(undefined);
 
   const currentData = (vendedores || [])
     .filter((v) => !EXCLUDED_VENDORS.includes(v.responsible_user_name || ""))
     .sort((a, b) => b.leads_won - a.leads_won);
 
-  const totalReceita = currentData.reduce((s, v) => s + (v.receita_total || 0), 0);
-  const totalVendas = currentData.reduce((s, v) => s + v.leads_won, 0);
+  // Filter KPI data by selected vendor
+  const kpiData = selectedVendorId
+    ? currentData.filter((v) => v.responsible_user_id === selectedVendorId)
+    : currentData;
+
+  const totalReceita = kpiData.reduce((s, v) => s + (v.receita_total || 0), 0);
+  const totalVendas = kpiData.reduce((s, v) => s + v.leads_won, 0);
   const avgConversao =
-    currentData.length > 0
-      ? (currentData.reduce((s, v) => s + (v.taxa_conversao || 0), 0) / currentData.length).toFixed(1)
+    kpiData.length > 0
+      ? (kpiData.reduce((s, v) => s + (v.taxa_conversao || 0), 0) / kpiData.length).toFixed(1)
       : "0";
 
   const top3 = currentData.slice(0, 3);
@@ -168,11 +174,40 @@ export default function VendedoresPage() {
       />
 
       <div className="space-y-6 p-6">
+        {/* Filtro por Vendedor */}
+        {currentData.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedVendorId(undefined)}
+              className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                selectedVendorId === undefined
+                  ? "bg-blue-600 text-white border border-white/10"
+                  : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+              }`}
+            >
+              Todos
+            </button>
+            {currentData.map((v) => (
+              <button
+                key={v.responsible_user_id}
+                onClick={() => setSelectedVendorId(v.responsible_user_id)}
+                className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                  selectedVendorId === v.responsible_user_id
+                    ? "bg-blue-600 text-white border border-white/10"
+                    : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                }`}
+              >
+                {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* KPI Cards — glow style */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <GlowKPICard
-            label="Vendedores Ativos"
-            value={currentData.length}
+            label={selectedVendorId ? "Leads" : "Vendedores Ativos"}
+            value={selectedVendorId ? kpiData.reduce((s, v) => s + v.total_leads, 0) : currentData.length}
             icon={<Users className="h-6 w-6" />}
             glowColor="rgba(59,130,246,0.4)"
             iconBg="rgba(59,130,246,0.1)"
@@ -324,7 +359,7 @@ export default function VendedoresPage() {
             <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-2">
               <Clock className="h-4 w-4 text-blue-400" />
               <h3 className="text-sm font-bold text-white">Tempo de Primeira Resposta por Vendedor</h3>
-              <InfoTooltip text="Tempo entre a criacao do lead e a primeira atividade do vendedor. Meta: ate 10 minutos." />
+              <InfoTooltip text="Tempo entre a criação do lead e a primeira atividade do vendedor. Para o tempo específico após a transferência (etapa TRANSFERENCIA → vendedor assumir), veja os cards na página IA/SDR. Meta: até 10 minutos." />
             </div>
             <div className="overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
               <table className="w-full text-xs">
@@ -367,8 +402,8 @@ export default function VendedoresPage() {
           </section>
         )}
 
-        {/* Tempo Medio por Etapa */}
-        {stageDurations && stageDurations.length > 0 && (
+        {/* Tempo Medio por Etapa (apenas Teste Implantação + SDR) */}
+        {stageDurations && stageDurations.filter(sd => [13215396, 11480160].includes(sd.pipeline_id)).length > 0 && (
           <section
             className="rounded-xl overflow-hidden"
             style={{ backgroundColor: CARD_BG, border: "1px solid #2A303C" }}
@@ -391,8 +426,9 @@ export default function VendedoresPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/40 text-gray-300">
-                  {stageDurations.map((sd, i) => {
-                    const maxH = Math.max(...stageDurations.map((s) => s.avg_duration_hours), 1);
+                  {stageDurations.filter(sd => [13215396, 11480160].includes(sd.pipeline_id)).map((sd, i) => {
+                    const filtered = stageDurations.filter(s => [13215396, 11480160].includes(s.pipeline_id));
+                    const maxH = Math.max(...filtered.map((s) => s.avg_duration_hours), 1);
                     const pct = Math.round((sd.avg_duration_hours / maxH) * 100);
                     return (
                       <tr key={`${sd.pipeline_id}-${sd.status_name}-${i}`} className="hover:bg-white/5 transition-colors">
@@ -522,51 +558,6 @@ export default function VendedoresPage() {
           </section>
         )}
 
-        {/* Funnel Preview */}
-        <section
-          className="rounded-t-xl overflow-hidden relative"
-          style={{ backgroundColor: CARD_BG, border: `1px solid #2A303C`, height: 200 }}
-        >
-          <div className="px-6 py-4">
-            <h3 className="text-lg font-bold text-white">Funnel de Vendas (Preview)</h3>
-          </div>
-
-          {/* Neon horizon effect */}
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-            {/* Radial glow */}
-            <div
-              className="absolute bottom-0 left-0 right-0"
-              style={{
-                height: 100,
-                background: "radial-gradient(ellipse at center bottom, rgba(59,130,246,0.5) 0%, transparent 70%)",
-              }}
-            />
-            {/* Neon line */}
-            <div
-              className="absolute bottom-0 w-full h-px"
-              style={{ backgroundColor: "#3b82f6", boxShadow: "0 0 20px 2px rgba(59,130,246,0.8)" }}
-            />
-            {/* Curved purple line */}
-            <div
-              className="absolute w-[120%] border-t-2 border-purple-500 rounded-[100%]"
-              style={{
-                bottom: -40,
-                left: "-10%",
-                height: 128,
-                filter: "blur(2px)",
-                boxShadow: "0 -5px 20px rgba(168,85,247,0.6)",
-              }}
-            />
-          </div>
-
-          {/* Top3 lead count label */}
-          {top3[0] && (
-            <div className="relative z-10 text-center mt-2">
-              <p className="text-xs text-gray-400 tracking-wide">Contato Inicial</p>
-              <span className="text-white font-bold text-lg">{top3[0].total_leads?.toLocaleString("pt-BR")}</span>
-            </div>
-          )}
-        </section>
       </div>
     </>
   );

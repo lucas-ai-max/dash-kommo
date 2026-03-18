@@ -34,18 +34,21 @@ import {
   fetchTemperaturaByCanal,
   fetchLeadsQuentesByVendorByDay,
   fetchQuentesByOrigin,
+  fetchTemperaturaByOriginFull,
   fetchPropostaStats,
   fetchSDRStageResponseTime,
   fetchVendorStageResponseTime,
+  fetchIACycleTime,
+  fetchSDRCycleToTransfer,
 } from "@/lib/queries";
 import type { Periodo } from "@/types/metrics";
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
-export function useOverviewMetrics(periodo: Periodo) {
+export function useOverviewMetrics(periodo: Periodo, vendedorId?: number) {
   return useSWR(
-    ["overview-metrics", periodo],
-    () => fetchOverviewMetrics(periodo),
+    ["overview-metrics", periodo, vendedorId],
+    () => fetchOverviewMetrics(periodo, vendedorId),
     { refreshInterval: REFRESH_INTERVAL }
   );
 }
@@ -74,10 +77,10 @@ export function useVendedorMetrics(periodo: Periodo) {
   );
 }
 
-export function useFunilData(periodo: Periodo = "mes_atual", pipelineId?: number) {
+export function useFunilData(periodo: Periodo = "mes_atual", pipelineId?: number, vendedorId?: number) {
   return useSWR(
-    ["funil-data", periodo, pipelineId],
-    () => fetchFunilData(periodo, pipelineId),
+    ["funil-data", periodo, pipelineId, vendedorId],
+    () => fetchFunilData(periodo, pipelineId, vendedorId),
     { refreshInterval: REFRESH_INTERVAL }
   );
 }
@@ -134,10 +137,12 @@ export function useSDRMetrics(periodo: Periodo) {
   );
 }
 
-export function useLeadsHumanoSemProposta() {
-  return useSWR("leads-humano-sem-proposta", fetchLeadsHumanoSemProposta, {
-    refreshInterval: REFRESH_INTERVAL,
-  });
+export function useLeadsHumanoSemProposta(periodo: Periodo = "todos", vendedorId?: number) {
+  return useSWR(
+    ["leads-humano-sem-proposta", periodo, vendedorId],
+    () => fetchLeadsHumanoSemProposta(periodo, vendedorId),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
 }
 
 export function useLeadsNegociacoesQuentes() {
@@ -146,18 +151,20 @@ export function useLeadsNegociacoesQuentes() {
   });
 }
 
-export function useDailyLeadCounts(periodo: Periodo, pipelineId?: number) {
+export function useDailyLeadCounts(periodo: Periodo, pipelineId?: number, vendedorId?: number) {
   return useSWR(
-    ["daily-lead-counts", periodo, pipelineId],
-    () => fetchDailyLeadCounts(periodo, pipelineId),
+    ["daily-lead-counts", periodo, pipelineId, vendedorId],
+    () => fetchDailyLeadCounts(periodo, pipelineId, vendedorId),
     { refreshInterval: REFRESH_INTERVAL }
   );
 }
 
-export function useSDRResponseTimeStats() {
-  return useSWR("sdr-response-time-stats", fetchSDRResponseTimeStats, {
-    refreshInterval: REFRESH_INTERVAL,
-  });
+export function useSDRResponseTimeStats(periodo: Periodo = "todos") {
+  return useSWR(
+    ["sdr-response-time-stats", periodo],
+    () => fetchSDRResponseTimeStats(periodo),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
 }
 
 export function useSDRConversionStats(periodo: Periodo) {
@@ -276,6 +283,22 @@ export function useVendorStageResponseTime() {
   });
 }
 
+export function useIACycleTime(periodo: Periodo) {
+  return useSWR(
+    ["ia-cycle-time", periodo],
+    () => fetchIACycleTime(periodo),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
+}
+
+export function useSDRCycleToTransfer(periodo: Periodo) {
+  return useSWR(
+    ["sdr-cycle-to-transfer", periodo],
+    () => fetchSDRCycleToTransfer(periodo),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
+}
+
 export function useTemperaturaByCanal(periodo: Periodo) {
   return useSWR(
     ["temperatura-by-canal", periodo],
@@ -296,6 +319,14 @@ export function useQuentesByOrigin(periodo: Periodo) {
   return useSWR(
     ["quentes-by-origin", periodo],
     () => fetchQuentesByOrigin(periodo),
+    { refreshInterval: REFRESH_INTERVAL }
+  );
+}
+
+export function useTemperaturaByOriginFull(periodo: Periodo) {
+  return useSWR(
+    ["temp-by-origin-full", periodo],
+    () => fetchTemperaturaByOriginFull(periodo),
     { refreshInterval: REFRESH_INTERVAL }
   );
 }

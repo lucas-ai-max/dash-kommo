@@ -74,16 +74,21 @@ function getDateRange(periodo: Periodo): { from: string; to: string } | null {
 }
 
 export async function fetchOverviewMetrics(
-  periodo: Periodo
+  periodo: Periodo,
+  vendedorId?: number
 ): Promise<DashboardMetrics | null> {
   const range = getDateRange(periodo);
 
-  // Volume: leads CRIADOS no período — ambos os pipelines, sem perdidos
+  // Volume: leads CRIADOS no período — pipeline Teste Implantação
   let volumeQuery = supabase
     .from("dashboard_leads")
     .select("is_won, is_lost, is_active, price, ciclo_dias, created_at, closed_at")
-    .in("pipeline_id", [9968344, 13215396])
+    .eq("pipeline_id", 13215396)
     .eq("is_lost", false);
+
+  if (vendedorId) {
+    volumeQuery = volumeQuery.eq("responsible_user_id", vendedorId);
+  }
 
   if (range) {
     volumeQuery = volumeQuery.gte("created_at", range.from).lte("created_at", range.to);
@@ -97,10 +102,13 @@ export async function fetchOverviewMetrics(
     let closedQuery = supabase
       .from("dashboard_leads")
       .select("is_won, is_lost, price, ciclo_dias, closed_at")
-      .in("pipeline_id", [9968344, 13215396])
+      .eq("pipeline_id", 13215396)
       .not("closed_at", "is", null)
       .gte("closed_at", range.from)
       .lte("closed_at", range.to);
+    if (vendedorId) {
+      closedQuery = closedQuery.eq("responsible_user_id", vendedorId);
+    }
     closedLeads = await fetchAllRows<any>(closedQuery);
   } else {
     // "todos" — won/lost vêm dos próprios leads
@@ -282,7 +290,7 @@ export async function fetchVendedorMetrics(
   let allQuery = supabase
     .from("dashboard_leads")
     .select(selectFields)
-    .eq("pipeline_id", 9968344);
+    .in("pipeline_id", [9968344, 13215396]);
 
   if (range) {
     allQuery = allQuery.gte("created_at", range.from).lte("created_at", range.to);
@@ -296,7 +304,7 @@ export async function fetchVendedorMetrics(
     let closedQuery = supabase
       .from("dashboard_leads")
       .select(selectFields)
-      .eq("pipeline_id", 9968344)
+      .in("pipeline_id", [9968344, 13215396])
       .not("closed_at", "is", null)
       .gte("closed_at", range.from)
       .lte("closed_at", range.to);
@@ -431,16 +439,25 @@ const CUMULATIVE_UNTIL: Record<number, string> = {
 };
 
 export async function fetchFunilData(
-  _periodo: Periodo = "todos",
-  pipelineId?: number
+  periodo: Periodo = "todos",
+  pipelineId?: number,
+  vendedorId?: number
 ): Promise<DashboardFunil[]> {
-  // Funil mostra o estado ATUAL da pipeline — ignora filtro de data
+  const range = periodo !== "todos" ? getDateRange(periodo) : null;
   let query = supabase
     .from("dashboard_leads")
     .select("pipeline_id, pipeline_name, status_id, status_name, is_active");
 
   if (pipelineId) {
     query = query.eq("pipeline_id", pipelineId);
+  }
+
+  if (vendedorId) {
+    query = query.eq("responsible_user_id", vendedorId);
+  }
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
   }
 
   const leads = await fetchAllRows<any>(query);
@@ -503,7 +520,7 @@ export async function fetchFunilData(
 
   const result = Array.from(stageMap.values()).map((s) => ({
     metric_date: format(new Date(), "yyyy-MM-dd"),
-    periodo: _periodo,
+    periodo: periodo,
     pipeline_id: s.pipeline_id,
     pipeline_name: s.pipeline_name,
     status_id: s.status_id,
@@ -870,14 +887,22 @@ export interface LeadsHumanoSemPropostaResult {
   leads: { name: string; stage: string; responsavel: string }[];
 }
 
-export async function fetchLeadsHumanoSemProposta(): Promise<LeadsHumanoSemPropostaResult> {
-  const allAtivos = await fetchAllRows<any>(
-    supabase
-      .from("dashboard_leads")
-      .select("lead_name, status_name, responsible_user_name")
-      .eq("pipeline_id", 13215396)
-      .eq("is_active", true)
-  );
+export async function fetchLeadsHumanoSemProposta(periodo: Periodo = "todos", vendedorId?: number): Promise<LeadsHumanoSemPropostaResult> {
+  const range = getDateRange(periodo);
+  let query = supabase
+    .from("dashboard_leads")
+    .select("lead_name, status_name, responsible_user_name")
+    .eq("pipeline_id", 13215396)
+    .eq("is_active", true);
+
+  if (vendedorId) {
+    query = query.eq("responsible_user_id", vendedorId);
+  }
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const allAtivos = await fetchAllRows<any>(query);
 
   const PROPOSTA_STAGES = ["PROPOSTA", "OBJEÇOES", "FECHAMENTO", "OBJEÇÕES"];
   const semProposta = allAtivos.filter(
@@ -936,7 +961,8 @@ export interface DailyLeadCount {
 
 export async function fetchDailyLeadCounts(
   periodo: Periodo,
-  pipelineId?: number
+  pipelineId?: number,
+  vendedorId?: number
 ): Promise<DailyLeadCount[]> {
   const range = getDateRange(periodo);
   // Default to last 30 days if "todos"
@@ -954,6 +980,10 @@ export async function fetchDailyLeadCounts(
     query = query.eq("pipeline_id", pipelineId);
   } else {
     query = query.in("pipeline_id", [9968344, 13215396]);
+  }
+
+  if (vendedorId) {
+    query = query.eq("responsible_user_id", vendedorId);
   }
 
   const leads = await fetchAllRows<any>(query);
@@ -984,18 +1014,22 @@ export interface SDRResponseTimeStats {
   sample_size: number;
 }
 
-export async function fetchSDRResponseTimeStats(): Promise<SDRResponseTimeStats> {
-  // Fetch leads from SDR pipeline with first event data
-  // Uses tempo_primeiro_atendimento_min if available, otherwise calculates from events
-  const leads = await fetchAllRows<any>(
-    supabase
-      .from("dashboard_leads")
-      .select("tempo_primeiro_atendimento_min, created_at, closed_at")
-      .eq("pipeline_id", 11480160)
-      .not("closed_at", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(200)
-  );
+export async function fetchSDRResponseTimeStats(periodo: Periodo = "todos"): Promise<SDRResponseTimeStats> {
+  const range = getDateRange(periodo);
+
+  let query = supabase
+    .from("dashboard_leads")
+    .select("tempo_primeiro_atendimento_min, created_at, closed_at")
+    .eq("pipeline_id", 11480160)
+    .not("closed_at", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const leads = await fetchAllRows<any>(query);
 
   // If tempo_primeiro_atendimento_min is populated, use it
   const tempos = leads
@@ -1094,7 +1128,7 @@ export async function fetchPerdasPorEtapa(
 
   let query = supabase
     .from("dashboard_leads")
-    .select("last_active_stage, motivo_perda")
+    .select("last_active_stage, motivo_perda, closed_at")
     .eq("is_lost", true)
     .not("last_active_stage", "is", null);
 
@@ -1102,7 +1136,7 @@ export async function fetchPerdasPorEtapa(
     query = query.eq("pipeline_id", pipelineId);
   }
   if (range) {
-    query = query.gte("created_at", range.from).lte("created_at", range.to);
+    query = query.gte("closed_at", range.from).lte("closed_at", range.to);
   }
 
   const leads = await fetchAllRows<any>(query);
@@ -1727,6 +1761,116 @@ export async function fetchVendorStageResponseTime(): Promise<VendorStageRespons
   };
 }
 
+// ── IA Cycle Time (created → transfer) ──────────────────────────────────────
+
+export interface IACycleTime {
+  avg_hours: number;
+  median_hours: number;
+  sample_size: number;
+}
+
+export async function fetchIACycleTime(periodo: Periodo): Promise<IACycleTime | null> {
+  // IA cycle = time from lead creation to when bot hands off (transferred)
+  // Use leads in Teste Implantação that have pre_atendimento indicating bot origin
+  // Their cycle: created_at → first_vendor_event_at (when vendor first touched the lead)
+  const range = getDateRange(periodo);
+
+  let query = supabase
+    .from("dashboard_leads")
+    .select("created_at, first_vendor_event_at, pre_atendimento, canal_venda")
+    .eq("pipeline_id", 13215396)
+    .not("first_vendor_event_at", "is", null);
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const leads = await fetchAllRows<any>(query);
+
+  // Filter to bot-origin leads
+  const botLeads = leads.filter((l: any) => {
+    const pre = (l.pre_atendimento || "").toLowerCase();
+    const canal = (l.canal_venda || "").toLowerCase();
+    return pre.includes("bot") || pre.includes("ia") || pre.includes("automati") ||
+           canal.includes("bot") || canal.includes("ia");
+  });
+
+  if (botLeads.length === 0) {
+    // Fallback: use all leads (IA handles initial contact for most)
+    // Calculate time from creation to first vendor event
+    const allWithEvents = leads.filter((l: any) => l.first_vendor_event_at && l.created_at);
+    if (allWithEvents.length === 0) return null;
+
+    const hours = allWithEvents.map((l: any) => {
+      const created = new Date(l.created_at).getTime();
+      const firstVendor = new Date(l.first_vendor_event_at).getTime();
+      return (firstVendor - created) / 3600000;
+    }).filter(h => h > 0 && h < 720); // exclude outliers > 30 days
+
+    if (hours.length === 0) return null;
+    hours.sort((a, b) => a - b);
+    const n = hours.length;
+    const median = n % 2 === 0 ? (hours[n/2 - 1] + hours[n/2]) / 2 : hours[Math.floor(n/2)];
+    const avg = hours.reduce((a, b) => a + b, 0) / n;
+
+    return { avg_hours: Number(avg.toFixed(1)), median_hours: Number(median.toFixed(1)), sample_size: n };
+  }
+
+  const hours = botLeads.map((l: any) => {
+    const created = new Date(l.created_at).getTime();
+    const firstVendor = new Date(l.first_vendor_event_at).getTime();
+    return (firstVendor - created) / 3600000;
+  }).filter(h => h > 0 && h < 720);
+
+  if (hours.length === 0) return null;
+  hours.sort((a, b) => a - b);
+  const n = hours.length;
+  const median = n % 2 === 0 ? (hours[n/2 - 1] + hours[n/2]) / 2 : hours[Math.floor(n/2)];
+  const avg = hours.reduce((a, b) => a + b, 0) / n;
+
+  return { avg_hours: Number(avg.toFixed(1)), median_hours: Number(median.toFixed(1)), sample_size: n };
+}
+
+// ── SDR Cycle to Transfer ───────────────────────────────────────────────────
+
+export interface SDRCycleToTransfer {
+  avg_hours: number;
+  median_hours: number;
+  sample_size: number;
+}
+
+export async function fetchSDRCycleToTransfer(periodo: Periodo): Promise<SDRCycleToTransfer | null> {
+  // SDR cycle = time from lead creation in SDR pipeline to closure (transfer)
+  const range = getDateRange(periodo);
+
+  let query = supabase
+    .from("dashboard_leads")
+    .select("created_at, closed_at")
+    .eq("pipeline_id", 11480160)
+    .not("closed_at", "is", null);
+
+  if (range) {
+    query = query.gte("created_at", range.from).lte("created_at", range.to);
+  }
+
+  const leads = await fetchAllRows<any>(query);
+  if (leads.length === 0) return null;
+
+  const hours = leads.map((l: any) => {
+    const created = new Date(l.created_at).getTime();
+    const closed = new Date(l.closed_at).getTime();
+    return (closed - created) / 3600000;
+  }).filter(h => h > 0 && h < 720); // exclude outliers > 30 days
+
+  if (hours.length === 0) return null;
+  hours.sort((a, b) => a - b);
+  const n = hours.length;
+  const median = n % 2 === 0 ? (hours[n/2 - 1] + hours[n/2]) / 2 : hours[Math.floor(n/2)];
+  const avg = hours.reduce((a, b) => a + b, 0) / n;
+
+  return { avg_hours: Number(avg.toFixed(1)), median_hours: Number(median.toFixed(1)), sample_size: n };
+}
+
 // ── Temperatura by Canal ────────────────────────────────────────────────────
 
 export interface TemperaturaByCanal {
@@ -1825,9 +1969,29 @@ export interface QuentesByOrigin {
   pct: number;
 }
 
+export interface TemperaturaByOrigin {
+  origin: string;
+  quente: number;
+  medio: number;
+  frio: number;
+  total: number;
+}
+
 export async function fetchQuentesByOrigin(
   periodo: Periodo
 ): Promise<QuentesByOrigin[]> {
+  const data = await fetchTemperaturaByOriginFull(periodo);
+  // Backwards-compatible: return only quentes count
+  return data.map((d) => ({
+    origin: d.origin,
+    count: d.quente,
+    pct: d.total > 0 ? Number(((d.quente / d.total) * 100).toFixed(1)) : 0,
+  })).filter((o) => o.count > 0);
+}
+
+export async function fetchTemperaturaByOriginFull(
+  periodo: Periodo
+): Promise<TemperaturaByOrigin[]> {
   const range = getDateRange(periodo);
 
   let query = supabase
@@ -1840,34 +2004,33 @@ export async function fetchQuentesByOrigin(
   }
 
   const leads = await fetchAllRows<any>(query);
+  if (leads.length === 0) return [];
 
-  const quentes = leads.filter(
-    (l: any) => l.temperatura && l.temperatura.toLowerCase().includes("quente")
-  );
+  const origins: Record<string, { quente: number; medio: number; frio: number; total: number }> = {
+    "Bot / IA": { quente: 0, medio: 0, frio: 0, total: 0 },
+    "SDR Humano": { quente: 0, medio: 0, frio: 0, total: 0 },
+    "Direto": { quente: 0, medio: 0, frio: 0, total: 0 },
+  };
 
-  if (quentes.length === 0) return [];
-
-  let botCount = 0;
-  let sdrCount = 0;
-  let directCount = 0;
-
-  for (const l of quentes) {
+  for (const l of leads) {
     const preAtend = (l.pre_atendimento || "").toLowerCase();
+    let originKey = "Direto";
     if (preAtend.includes("bot") || preAtend.includes("ia") || preAtend.includes("automati")) {
-      botCount++;
+      originKey = "Bot / IA";
     } else if (l.origin_pipeline_id === 11480160) {
-      sdrCount++;
-    } else {
-      directCount++;
+      originKey = "SDR Humano";
     }
+
+    const temp = (l.temperatura || "").toLowerCase();
+    origins[originKey].total++;
+    if (temp.includes("quente")) origins[originKey].quente++;
+    else if (temp.includes("frio")) origins[originKey].frio++;
+    else origins[originKey].medio++;
   }
 
-  const total = quentes.length;
-  return [
-    { origin: "Bot / IA", count: botCount, pct: Number(((botCount / total) * 100).toFixed(1)) },
-    { origin: "SDR Humano", count: sdrCount, pct: Number(((sdrCount / total) * 100).toFixed(1)) },
-    { origin: "Direto", count: directCount, pct: Number(((directCount / total) * 100).toFixed(1)) },
-  ].filter((o) => o.count > 0);
+  return Object.entries(origins)
+    .map(([origin, data]) => ({ origin, ...data }))
+    .filter((o) => o.total > 0);
 }
 
 export async function fetchLastSync(): Promise<DashboardSyncLog | null> {

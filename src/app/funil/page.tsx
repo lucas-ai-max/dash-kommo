@@ -3,11 +3,10 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import InfoTooltip from "@/components/ui/InfoTooltip";
-import { useFunilData, useLeadsHumanoSemProposta, useStageDurations } from "@/hooks/useMetrics";
+import { useFunilData, useLeadsHumanoSemProposta, useStageDurations, useVendedorMetrics } from "@/hooks/useMetrics";
 import { useDateFilter } from "@/hooks/useDateFilter";
 
 const PIPELINES = [
-  { id: 9968344, name: "Vendedores" },
   { id: 13215396, name: "Teste Implantação" },
 ];
 
@@ -48,13 +47,18 @@ function stageColor(name: string) {
   return "blue";
 }
 
+const EXCLUDED_VENDORS = ["Velocity Digital Company", "Eryck Henrique Matos"];
+
 export default function FunilPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<number>(PIPELINES[0].id);
   const [semPropostaExpanded, setSemPropostaExpanded] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | undefined>(undefined);
   const { periodo } = useDateFilter();
-  const { data: funil, isLoading } = useFunilData(periodo, selectedPipelineId);
-  const { data: humanoSemProposta, isLoading: loadingHumano } = useLeadsHumanoSemProposta();
+  const { data: funil, isLoading } = useFunilData(periodo, selectedPipelineId, selectedVendorId);
+  const { data: humanoSemProposta, isLoading: loadingHumano } = useLeadsHumanoSemProposta(periodo, selectedVendorId);
   const { data: stageDurations } = useStageDurations(selectedPipelineId);
+  const { data: vendedoresList } = useVendedorMetrics(periodo);
+  const filteredVendors = (vendedoresList || []).filter(v => !EXCLUDED_VENDORS.includes(v.responsible_user_name || "")).sort((a, b) => b.total_leads - a.total_leads);
 
   const stages = funil || [];
   const maxLeads = stages[0]?.leads_atual || 1;
@@ -68,7 +72,7 @@ export default function FunilPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         {/* Pipeline selector buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-3 mb-4">
           {PIPELINES.map((p) => (
             <button
               key={p.id}
@@ -82,6 +86,35 @@ export default function FunilPage() {
             </button>
           ))}
         </div>
+
+        {/* Vendedor filter */}
+        {filteredVendors.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button
+              onClick={() => setSelectedVendorId(undefined)}
+              className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                selectedVendorId === undefined
+                  ? "bg-blue-600 text-white border border-white/10"
+                  : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+              }`}
+            >
+              Todos
+            </button>
+            {filteredVendors.map((v) => (
+              <button
+                key={v.responsible_user_id}
+                onClick={() => setSelectedVendorId(v.responsible_user_id)}
+                className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                  selectedVendorId === v.responsible_user_id
+                    ? "bg-blue-600 text-white border border-white/10"
+                    : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                }`}
+              >
+                {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+              </button>
+            ))}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="grid xl:grid-cols-12 gap-6">

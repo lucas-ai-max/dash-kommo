@@ -18,6 +18,7 @@ import {
   useTemperaturaByCanal,
   useLeadsQuentesByVendorByDay,
   useQuentesByOrigin,
+  useTemperaturaByOriginFull,
 } from "@/hooks/useMetrics";
 import { Users, Percent, CreditCard, DollarSign, ChevronRight, Clock, Flame } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -52,17 +53,18 @@ const PIPELINE_OPTIONS = [
 export default function OverviewPage() {
   const { periodo } = useDateFilter();
   const [selectedPipeline, setSelectedPipeline] = useState<number | undefined>(undefined);
-  const { data: metrics, isLoading } = useOverviewMetrics(periodo);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | undefined>(undefined);
+  const { data: metrics, isLoading } = useOverviewMetrics(periodo, selectedVendorId);
   const { data: canais } = useCanalMetrics(periodo);
   const { data: vendedores } = useVendedorMetrics(periodo);
-  const { data: funilVendedores } = useFunilData(periodo, 9968344);
   const { data: funilTeste } = useFunilData(periodo, 13215396);
-  const { data: dailyLeads } = useDailyLeadCounts(periodo, selectedPipeline);
+  const { data: dailyLeads } = useDailyLeadCounts(periodo, selectedPipeline, selectedVendorId);
   const { data: tempDist } = useTemperaturaDistribution(periodo);
   const { data: tempByVendor } = useTemperaturaByVendor(periodo);
   const { data: tempByCanal } = useTemperaturaByCanal(periodo);
   const { data: quentesByVendorDay } = useLeadsQuentesByVendorByDay(periodo);
   const { data: quentesByOrigin } = useQuentesByOrigin(periodo);
+  const { data: tempByOriginFull } = useTemperaturaByOriginFull(periodo);
   const { data: leadsEmPotencial } = useLeadsNegociacoesQuentes();
 
   const chartData = (dailyLeads || []).map((d) => ({
@@ -82,9 +84,6 @@ export default function OverviewPage() {
     "Venda ganha",
   ];
 
-  const filteredFunilVendedores = (funilVendedores || []).filter(
-    (f) => !EXCLUDED_STAGES.some((s) => s.toLowerCase() === (f.status_name || "").toLowerCase())
-  );
   const filteredFunilTeste = (funilTeste || []).filter(
     (f) => !EXCLUDED_STAGES.some((s) => s.toLowerCase() === (f.status_name || "").toLowerCase())
   );
@@ -181,6 +180,35 @@ export default function OverviewPage() {
             tooltip={`Taxa de conversão dos leads em Negociações Quentes (pipeline Vendedores). ${leadsEmPotencial ? `Total: ${leadsEmPotencial.total} | Ganhos: ${leadsEmPotencial.won} | Perdidos: ${leadsEmPotencial.lost} | Ativos: ${leadsEmPotencial.ativos}` : ''}`}
           />
         </section>
+
+        {/* Filtro por Vendedor */}
+        {filteredVendedores.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedVendorId(undefined)}
+              className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                selectedVendorId === undefined
+                  ? "bg-blue-600 text-white border border-white/10"
+                  : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+              }`}
+            >
+              Todos
+            </button>
+            {filteredVendedores.map((v) => (
+              <button
+                key={v.responsible_user_id}
+                onClick={() => setSelectedVendorId(v.responsible_user_id)}
+                className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                  selectedVendorId === v.responsible_user_id
+                    ? "bg-blue-600 text-white border border-white/10"
+                    : "bg-transparent text-gray-500 hover:text-white border border-white/10 hover:border-white/30"
+                }`}
+              >
+                {(v.responsible_user_name || "").split(" ").slice(0, 2).join(" ")}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Row 2: Leads por Dia chart */}
         <section>
@@ -326,16 +354,10 @@ export default function OverviewPage() {
           </div>
         </section>
 
-        {/* Row 3: Distribuição por Etapa (separado por pipeline) + Performance por Canal */}
+        {/* Row 3: Distribuição por Etapa + Performance por Canal */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-white/5 overflow-hidden flex" style={{ backgroundColor: "#1b1e2b" }}>
-            <div className="flex-1 min-w-0">
-              <DonutChart data={filteredFunilVendedores} title="Vendedores" />
-            </div>
-            <div className="w-px bg-white/5 self-stretch" />
-            <div className="flex-1 min-w-0">
-              <DonutChart data={filteredFunilTeste} title="Teste Implantação" />
-            </div>
+          <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
+            <DonutChart data={filteredFunilTeste} title="Teste Implantação" />
           </div>
           <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ backgroundColor: "#1b1e2b" }}>
             <ChannelBarChart data={canais || []} />
@@ -377,6 +399,32 @@ export default function OverviewPage() {
                   );
                 })}
               </div>
+
+              {/* O3: Conversões por nível de temperatura */}
+              {(() => {
+                const totalWon = tempDist.reduce((s, t) => s + t.won, 0);
+                if (totalWon === 0) return null;
+                return (
+                  <div className="mt-4 pt-3 border-t border-white/5">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Conversões por nível</p>
+                    <p className="text-xs text-gray-300">
+                      Dos <span className="text-white font-bold">{totalWon}</span> leads convertidos:
+                    </p>
+                    <div className="flex gap-3 mt-1.5">
+                      {tempDist.map((t) => {
+                        const color = t.temperatura.toLowerCase().includes("quente")
+                          ? "text-red-400" : t.temperatura.toLowerCase().includes("frio")
+                          ? "text-blue-400" : "text-yellow-400";
+                        return (
+                          <span key={t.temperatura} className={`text-xs font-mono ${color}`}>
+                            {t.won} {t.temperatura.toLowerCase()}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* By vendor table */}
@@ -489,36 +537,36 @@ export default function OverviewPage() {
               </div>
             )}
 
-            {/* H3: % Leads quentes SDR Humano vs IA */}
-            {quentesByOrigin && quentesByOrigin.length > 0 && (
+            {/* H3: Temperatura por Origem (IA / SDR / Direto) */}
+            {tempByOriginFull && tempByOriginFull.length > 0 && (
               <div className="rounded-2xl border border-white/5 p-6" style={{ backgroundColor: "#1b1e2b" }}>
-                <h3 className="text-sm font-semibold text-white mb-4">Leads Quentes por Origem</h3>
-                <p className="text-xs text-gray-500 mb-4">Qual canal de entrada gera mais leads quentes?</p>
-                <div className="space-y-3">
-                  {quentesByOrigin.map((o) => {
-                    const color =
-                      o.origin.includes("Bot") ? "#8b5cf6"
-                      : o.origin.includes("SDR") ? "#3b82f6"
-                      : "#10b981";
+                <h3 className="text-sm font-semibold text-white mb-2">Temperatura por Origem</h3>
+                <p className="text-xs text-gray-500 mb-4">Distribuição completa (frio/médio/quente) por canal de entrada</p>
+                <div className="space-y-4">
+                  {tempByOriginFull.map((o) => {
+                    const pctQ = o.total > 0 ? Math.round((o.quente / o.total) * 100) : 0;
+                    const pctM = o.total > 0 ? Math.round((o.medio / o.total) * 100) : 0;
+                    const pctF = o.total > 0 ? Math.round((o.frio / o.total) * 100) : 0;
                     return (
                       <div key={o.origin}>
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-300">{o.origin}</span>
-                          <span className="text-gray-400 font-mono">{o.count} ({o.pct}%)</span>
+                          <span className="text-gray-300 font-medium">{o.origin}</span>
+                          <span className="text-gray-500 font-mono">{o.total} leads</span>
                         </div>
-                        <div className="h-3 rounded-full bg-white/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${Math.max(o.pct, 3)}%`, backgroundColor: color }}
-                          />
+                        <div className="h-3 rounded-full bg-white/5 overflow-hidden flex">
+                          {o.quente > 0 && <div className="h-full" style={{ width: `${pctQ}%`, backgroundColor: "#ef4444" }} />}
+                          {o.medio > 0 && <div className="h-full" style={{ width: `${pctM}%`, backgroundColor: "#f59e0b" }} />}
+                          {o.frio > 0 && <div className="h-full" style={{ width: `${pctF}%`, backgroundColor: "#3b82f6" }} />}
+                        </div>
+                        <div className="flex gap-3 mt-0.5 text-[10px]">
+                          <span className="text-red-400">{o.quente} quente ({pctQ}%)</span>
+                          <span className="text-yellow-400">{o.medio} médio ({pctM}%)</span>
+                          <span className="text-blue-400">{o.frio} frio ({pctF}%)</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-gray-600 mt-4">
-                  Total de leads quentes: {quentesByOrigin.reduce((s, o) => s + o.count, 0)}
-                </p>
               </div>
             )}
           </section>
